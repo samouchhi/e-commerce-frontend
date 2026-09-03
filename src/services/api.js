@@ -1,6 +1,8 @@
+const apiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+
 const request = async (path, options = {}) => {
   const token = localStorage.getItem('auth-token')
-  const response = await fetch(path, {
+  const response = await fetch(`${apiUrl}${path}`, {
     ...options,
     headers: {
       Accept: 'application/json',
