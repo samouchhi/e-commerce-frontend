@@ -5,30 +5,11 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  const apiUrl = env.VITE_API_URL || 'http://e-commerce.test'
-
-  return {
-    plugins: [vue(), vueDevTools()],
-    resolve: {
-      alias: {
-        '@': fileURLToPath(new URL('./src', import.meta.url)),
-      },
+export default defineConfig({
+  plugins: [vue(), vueDevTools()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
-    server: {
-      proxy: {
-        '/api': {
-          target: apiUrl,
-          changeOrigin: true,
-          secure: false,
-        },
-        '/storage': {
-          target: apiUrl,
-          changeOrigin: true,
-          secure: false,
-        },
-      },
-    },
-  }
+  },
 })

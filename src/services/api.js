@@ -11,17 +11,27 @@ const request = async (path, options = {}) => {
       ...options.headers,
     },
   })
+  const contentType = response.headers.get('content-type') || ''
+  const responseBody = contentType.includes('application/json')
+    ? await response.json()
+    : await response.text()
+
   if (!response.ok) {
-    const error = new Error(`Request failed with status ${response.status}`)
+    const error = new Error(
+      typeof responseBody === 'string'
+        ? responseBody
+        : responseBody.message || `Request failed with status ${response.status}`,
+    )
     error.status = response.status
-    try {
-      error.details = await response.json()
-    } catch {
-      error.details = null
-    }
+    error.details = typeof responseBody === 'string' ? null : responseBody
     throw error
   }
-  return response.json()
+
+  if (typeof responseBody === 'string') {
+    throw new Error(`Expected JSON from ${path}, received: ${responseBody.slice(0, 200)}`)
+  }
+
+  return responseBody
 }
 
 export default { request }
