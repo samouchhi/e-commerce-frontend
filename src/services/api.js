@@ -1,5 +1,11 @@
 const apiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
+export const assetUrl = (path) => {
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  return `${apiUrl}/${path.replace(/^\/+/, '')}`
+}
+
 const request = async (path, options = {}) => {
   const token = localStorage.getItem('auth-token')
   const response = await fetch(`${apiUrl}${path}`, {

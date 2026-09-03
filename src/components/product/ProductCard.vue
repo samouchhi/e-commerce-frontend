@@ -1,5 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import { assetUrl } from '../../services/api'
 
 defineProps({
   product: {
@@ -10,7 +11,7 @@ defineProps({
 
 const imageUrl = (product) => {
   const image = product.images?.slice().sort((a, b) => a.sort_order - b.sort_order)[0]
-  return image?.image_path ? `/storage/${image.image_path}` : ''
+  return image?.image_path ? assetUrl(`/storage/${image.image_path}`) : ''
 }
 
 const activeVariant = (product) =>
