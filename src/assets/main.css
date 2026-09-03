@@ -1639,9 +1639,6 @@ h1 {
   .site-nav {
     display: none;
   }
-  .product-grid {
-    grid-template-columns: 1fr;
-  }
   .bag-drawer {
     padding: 1rem;
   }
