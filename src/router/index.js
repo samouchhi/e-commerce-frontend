@@ -3,6 +3,8 @@ import HomeView from '../views/HomeView.vue'
 import ProductDetailView from '../views/ProductDetailView.vue'
 import CartView from '../views/CartView.vue'
 import CheckoutView from '../views/CheckoutView.vue'
+import LoginView from '../views/LoginView.vue'
+import { isAuthenticated } from '../services/authService'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -23,9 +25,15 @@ const router = createRouter({
     //   component: CartView,
     // },
     {
+      path: '/login',
+      name: 'login',
+      component: LoginView,
+    },
+    {
       path: '/checkout',
       name: 'checkout',
       component: CheckoutView,
+      meta: { requiresAuth: true },
     },
     {
       path: '/about',
@@ -36,6 +44,12 @@ const router = createRouter({
       component: () => import('../views/AboutView.vue'),
     },
   ],
+})
+
+router.beforeEach((to) => {
+  if (to.meta.requiresAuth && !isAuthenticated()) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
 })
 
 export default router

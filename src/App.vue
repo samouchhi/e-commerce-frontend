@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView, useRouter } from 'vue-router'
 import {
   getCart,
   mergeCartItem,
@@ -8,12 +8,18 @@ import {
   updateCartItem,
   updateCartQuantity,
 } from './services/cartService'
+import { getUser, isAuthenticated, logout } from './services/authService'
 import { getProducts } from './services/productService'
+import { assetUrl } from './services/api'
 
 const cart = ref([])
 const products = ref([])
+const router = useRouter()
 const warnings = ref({})
 const isBagOpen = ref(false)
+const isProfileOpen = ref(false)
+const isLoggedIn = ref(isAuthenticated())
+const user = ref(getUser())
 const refreshCart = () => (cart.value = getCart())
 const cartCount = computed(() => cart.value.reduce((total, item) => total + item.quantity, 0))
 const cartSubtotal = computed(() =>
@@ -28,7 +34,7 @@ const imageUrl = (item) => {
   const image = productFor(item)
     ?.images?.slice()
     .sort((a, b) => a.sort_order - b.sort_order)[0]
-  return image?.image_path ? `/storage/${image.image_path}` : item.imageUrl || ''
+  return image?.image_path ? assetUrl(`/storage/${image.image_path}`) : assetUrl(item.imageUrl)
 }
 const setWarning = (variantId, message) => {
   warnings.value = { ...warnings.value, [variantId]: message }
@@ -68,7 +74,26 @@ const changeVariant = (item, variantId) => {
 }
 const closeBag = () => (isBagOpen.value = false)
 const openBag = () => (isBagOpen.value = true)
-const handleEscape = (event) => event.key === 'Escape' && closeBag()
+const closeProfile = () => (isProfileOpen.value = false)
+const handleAuthUpdate = () => {
+  isLoggedIn.value = isAuthenticated()
+  user.value = getUser()
+}
+const userName = computed(() => user.value?.name || user.value?.email || 'Your account')
+const handleEscape = (event) => {
+  if (event.key === 'Escape') {
+    closeBag()
+    closeProfile()
+  }
+}
+const handleDocumentClick = (event) => {
+  if (!event.target.closest('.profile-menu')) closeProfile()
+}
+const signOut = async () => {
+  await logout()
+  closeProfile()
+  router.push('/')
+}
 
 onMounted(async () => {
   refreshCart()
@@ -79,12 +104,16 @@ onMounted(async () => {
   }
   window.addEventListener('cart-updated', refreshCart)
   window.addEventListener('cart-item-added', openBag)
+  window.addEventListener('auth-updated', handleAuthUpdate)
   window.addEventListener('keydown', handleEscape)
+  document.addEventListener('click', handleDocumentClick)
 })
 onUnmounted(() => {
   window.removeEventListener('cart-updated', refreshCart)
   window.removeEventListener('cart-item-added', openBag)
+  window.removeEventListener('auth-updated', handleAuthUpdate)
   window.removeEventListener('keydown', handleEscape)
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 
@@ -98,20 +127,49 @@ onUnmounted(() => {
       <RouterLink to="/">Shop</RouterLink>
       <RouterLink to="/about">About</RouterLink>
     </nav>
-    <button
-      class="bag-button"
-      type="button"
-      :aria-expanded="isBagOpen"
-      aria-controls="bag-drawer"
-      :aria-label="`Shopping bag, ${cartCount} items`"
-      @click="isBagOpen = true"
-    >
-      <svg class="bag-button__icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M5 8h14l-1 13H6L5 8Z" />
-        <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-      </svg>
-      <span>{{ cartCount }}</span>
-    </button>
+    <div class="header-actions">
+      <div class="profile-menu">
+        <button
+          class="profile-button"
+          type="button"
+          aria-label="Open profile menu"
+          :aria-expanded="isProfileOpen"
+          aria-haspopup="menu"
+          @click.stop="isProfileOpen = !isProfileOpen"
+        >
+          <svg class="profile-button__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" />
+            <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
+          </svg>
+        </button>
+        <div v-if="isProfileOpen" class="profile-dropdown" role="menu">
+          <template v-if="isLoggedIn">
+            <strong>{{ userName }}</strong>
+            <button type="button" role="menuitem" @click="signOut">Log out</button>
+          </template>
+          <template v-else>
+            <RouterLink to="/login" role="menuitem" @click="closeProfile">Login</RouterLink>
+            <RouterLink to="/login?mode=register" role="menuitem" @click="closeProfile">
+              Sign up
+            </RouterLink>
+          </template>
+        </div>
+      </div>
+      <button
+        class="bag-button"
+        type="button"
+        :aria-expanded="isBagOpen"
+        aria-controls="bag-drawer"
+        :aria-label="`Shopping bag, ${cartCount} items`"
+        @click="isBagOpen = true"
+      >
+        <svg class="bag-button__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 8h14l-1 13H6L5 8Z" />
+          <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+        </svg>
+        <span>{{ cartCount }}</span>
+      </button>
+    </div>
   </header>
   <RouterView />
 
