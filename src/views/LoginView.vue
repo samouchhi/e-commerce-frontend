@@ -1,10 +1,12 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login, register } from '../services/authService'
+import { getSettings } from '../services/settingsService'
 
 const route = useRoute()
 const router = useRouter()
+const siteName = ref('')
 const isRegistering = ref(route.query.mode === 'register')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
@@ -46,12 +48,20 @@ const toggleMode = () => {
   errorMessage.value = ''
   form.value.password_confirmation = ''
 }
+
+onMounted(async () => {
+  try {
+    siteName.value = (await getSettings()).site_name || ''
+  } catch {
+    siteName.value = ''
+  }
+})
 </script>
 
 <template>
   <main class="auth-page">
     <section class="auth-panel" aria-labelledby="auth-title">
-      <p class="eyebrow">ZANDO account</p>
+      <p v-if="siteName" class="eyebrow">{{ siteName }} account</p>
       <h1 id="auth-title">{{ isRegistering ? 'Create your account.' : 'Welcome back.' }}</h1>
       <p class="auth-panel__intro">
         {{
