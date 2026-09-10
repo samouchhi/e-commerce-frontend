@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import ProductList from '../components/product/ProductList.vue'
 import { addToCart as addItemToCart } from '../services/cartService'
+import { assetUrl } from '../services/api'
 import { getProducts } from '../services/productService'
 
 const route = useRoute()
@@ -18,7 +19,7 @@ const images = computed(
   () => product.value?.images?.slice().sort((a, b) => a.sort_order - b.sort_order) || [],
 )
 
-const imageUrl = (image) => (image?.image_path ? `/storage/${image.image_path}` : '')
+const imageUrl = (image) => (image?.image_path ? assetUrl(`/storage/${image.image_path}`) : '')
 
 const selectImage = (index) => {
   selectedImage.value = (index + images.value.length) % images.value.length

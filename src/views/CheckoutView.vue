@@ -2,14 +2,8 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
-import {
-  getCart,
-  clearCart,
-  mergeCartItem,
-  updateCartItem,
-  updateCartQuantity,
-} from '../services/cartService'
-import { createOrder, generateOrderPayment, verifyOrderPayment } from '../services/orderService'
+import { assetUrl } from '../services/api'
+import { getCart, mergeCartItem, updateCartItem, updateCartQuantity } from '../services/cartService'
 import { getProducts } from '../services/productService'
 
 const cart = ref(getCart())
@@ -70,7 +64,7 @@ const imageUrl = (item) => {
   const image = productFor(item)
     ?.images?.slice()
     .sort((a, b) => a.sort_order - b.sort_order)[0]
-  return image?.image_path ? `/storage/${image.image_path}` : item.imageUrl || ''
+  return image?.image_path ? assetUrl(`/storage/${image.image_path}`) : assetUrl(item.imageUrl)
 }
 const lineTotal = (item) => Number(item.price) * item.quantity
 const formatPrice = (price) =>
@@ -356,7 +350,7 @@ onUnmounted(() => {
             <img
               v-if="logistic.image"
               class="delivery-option__image"
-              :src="logistic.image"
+              :src="assetUrl(logistic.image)"
               :alt="`${logistic.name} logo`"
               loading="lazy"
             />

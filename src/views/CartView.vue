@@ -9,6 +9,7 @@ import {
   updateCartQuantity,
 } from '../services/cartService'
 import { getProducts } from '../services/productService'
+import { assetUrl } from '../services/api'
 
 const cart = ref([])
 const products = ref([])
@@ -26,7 +27,7 @@ const imageUrl = (item) => {
   const image = productFor(item)
     ?.images?.slice()
     .sort((a, b) => a.sort_order - b.sort_order)[0]
-  return image?.image_path ? `/storage/${image.image_path}` : item.imageUrl || ''
+  return image?.image_path ? assetUrl(`/storage/${image.image_path}`) : assetUrl(item.imageUrl)
 }
 const setWarning = (variantId, message) =>
   (warnings.value = { ...warnings.value, [variantId]: message })

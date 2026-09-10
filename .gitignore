@@ -9,6 +9,7 @@ lerna-debug.log*
 .env
 .env.*
 !.env.example
+!.env.production
 node_modules
 .DS_Store
 dist
