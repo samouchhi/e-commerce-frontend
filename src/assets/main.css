@@ -1961,3 +1961,174 @@ h1 {
     transition: none;
   }
 }
+
+/* Official artwork: https://link.payway.com.kh/images/khqr-icon.svg and /images/bakong.svg */
+.aba-payment-dialog {
+  background: #fff;
+  border-radius: 18px;
+  color: #314865;
+  font-family: Arial, sans-serif;
+  max-width: 460px;
+  padding: 24px;
+}
+.aba-payment-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.aba-payment-header h2 {
+  color: #314865;
+  font:
+    600 22px/1.2 Arial,
+    sans-serif;
+  margin: 0;
+}
+.aba-payment-back {
+  align-items: center;
+  background: #f0f1f2;
+  border: 0;
+  border-radius: 6px;
+  color: #5c6470;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+}
+.aba-payment-back svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+.aba-countdown {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: auto;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.aba-countdown-ring {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 50%;
+  background: conic-gradient(#21b9cd var(--progress), #e8edef 0);
+  position: relative;
+}
+.aba-countdown-ring::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: #fff;
+}
+.aba-khqr-card {
+  width: 260px;
+  max-width: 100%;
+  margin: 30px auto 24px;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 24px #00000012;
+  text-align: left;
+}
+.aba-khqr-banner {
+  height: 44px;
+  background: #e21a1a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+.aba-khqr-banner::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 100%;
+  border-top: 18px solid #e21a1a;
+  border-left: 18px solid transparent;
+}
+.aba-khqr-recipient {
+  padding: 24px 30px 15px;
+  border-bottom: 1px dashed #a7a7a7;
+}
+.aba-khqr-recipient p {
+  margin: 0 0 4px;
+  color: #314865;
+  font:
+    400 13px/1.4 Arial,
+    sans-serif;
+  overflow-wrap: anywhere;
+}
+.aba-khqr-recipient strong {
+  color: #172c49;
+  font-size: 21px;
+  font-weight: 700;
+}
+.aba-khqr-recipient span {
+  color: #314865;
+  font-size: 10px;
+  margin-left: 10px;
+}
+.aba-khqr-code {
+  position: relative;
+  width: 224px;
+  max-width: calc(100% - 24px);
+  margin: 12px auto 18px;
+  aspect-ratio: 1;
+}
+.aba-khqr-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.aba-khqr-emblem {
+  position: absolute;
+  width: 14.3%;
+  height: 14.3%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.aba-scan-description {
+  color: #737373;
+  font:
+    400 16px/1.5 Arial,
+    sans-serif;
+  margin: 0;
+}
+.aba-auto-status {
+  color: #677281;
+  font:
+    400 12px/1.5 Arial,
+    sans-serif;
+  margin: 16px 0 0;
+}
+.aba-payment-dialog .payment-actions {
+  margin-top: 20px;
+}
+.aba-payment-back:focus-visible {
+  outline: 2px solid #21b9cd;
+  outline-offset: 3px;
+}
+@media (max-width: 380px) {
+  .aba-payment-dialog {
+    padding: 16px;
+  }
+  .aba-payment-header {
+    gap: 8px;
+  }
+  .aba-payment-header h2 {
+    font-size: 18px;
+  }
+  .aba-countdown {
+    gap: 6px;
+    font-size: 14px;
+  }
+}
