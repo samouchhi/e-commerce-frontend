@@ -2132,3 +2132,27 @@ h1 {
     font-size: 14px;
   }
 }
+
+.aba-qr-loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+.aba-qr-spinner {
+  width: 36px;
+  height: 36px;
+  border: 4px solid #e8edef;
+  border-top-color: #21b9cd;
+  border-radius: 50%;
+  animation: aba-qr-spin 0.8s linear infinite;
+}
+@keyframes aba-qr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aba-qr-spinner {
+    animation: none;
+  }
+}

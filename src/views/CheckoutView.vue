@@ -470,9 +470,14 @@ onUnmounted(() => {
               <p v-if="paymentDetails && !paymentExpired && !qrTimeUp" class="aba-scan-description">
                 Scan with mobile banking app<br />that supports KHQR
               </p>
-              <p v-if="!paymentDetails && !errorMessage" class="payment-description" role="status">
-                Preparing your QR code...
-              </p>
+              <div
+                v-if="!paymentDetails && !errorMessage"
+                class="aba-qr-loading"
+                role="status"
+                aria-label="Preparing your QR code"
+              >
+                <span class="aba-qr-spinner" aria-hidden="true"></span>
+              </div>
               <p
                 v-if="paymentDetails && !paymentExpired"
                 class="aba-auto-status"
