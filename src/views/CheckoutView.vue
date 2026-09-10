@@ -3,10 +3,18 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import { assetUrl } from '../services/api'
-import { getCart, mergeCartItem, updateCartItem, updateCartQuantity } from '../services/cartService'
+import {
+  getCart,
+  clearCart,
+  mergeCartItem,
+  updateCartItem,
+  updateCartQuantity,
+} from '../services/cartService'
+import { createOrder, generateOrderPayment, verifyOrderPayment } from '../services/orderService'
 import { getProducts } from '../services/productService'
 
 const cart = ref(getCart())
+const refreshCart = () => (cart.value = getCart())
 const products = ref([])
 const logistics = ref([])
 const selectedLogisticId = ref('')
@@ -140,6 +148,15 @@ const closePaymentModal = () => {
 }
 
 const submitOrder = async () => {
+  refreshCart()
+  if (
+    !cart.value.length ||
+    isSubmitting.value ||
+    isLoadingLogistics.value ||
+    !selectedLogistic.value
+  )
+    return
+  if (!form.value.name.trim() || !form.value.phone.trim() || !form.value.address.trim()) return
   errorMessage.value = ''
   isSubmitting.value = true
   try {
@@ -195,6 +212,8 @@ const checkPayment = async () => {
 }
 
 onMounted(async () => {
+  window.addEventListener('cart-updated', refreshCart)
+  window.addEventListener('storage', refreshCart)
   try {
     products.value = await getProducts()
   } catch {
@@ -204,6 +223,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('cart-updated', refreshCart)
+  window.removeEventListener('storage', refreshCart)
   if (paymentQrImage.value) URL.revokeObjectURL(paymentQrImage.value)
 })
 </script>
@@ -337,7 +358,7 @@ onUnmounted(() => {
 
         <section class="checkout-section">
           <p class="checkout-section__label">Select delivery</p>
-          <p v-if="isLoadingLogistics" class="status"></p>
+          <p v-if="isLoadingLogistics" class="status" role="status">Loading delivery options...</p>
           <p v-else-if="logisticsError" class="status status--error">{{ logisticsError }}</p>
           <label v-for="logistic in logistics" v-else :key="logistic.id" class="delivery-option">
             <input
@@ -435,12 +456,13 @@ onUnmounted(() => {
         <div class="checkout-summary__total">
           <span>Total</span><strong>{{ formatPrice(total) }}</strong>
         </div>
+        <p v-if="errorMessage" class="status status--error" role="alert">{{ errorMessage }}</p>
         <button
           class="checkout-button"
           type="submit"
-          :disabled="isLoadingLogistics || !logistics.length"
+          :disabled="!cart.length || isSubmitting || isLoadingLogistics || !selectedLogistic"
         >
-          Review order
+          {{ isSubmitting ? 'Creating order...' : 'Review order' }}
         </button>
       </aside>
     </form>
