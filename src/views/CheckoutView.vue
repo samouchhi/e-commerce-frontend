@@ -2,10 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
-<<<<<<< Updated upstream
-import { getCart, mergeCartItem, updateCartItem, updateCartQuantity } from '../services/cartService'
-=======
-import { assetUrl } from '../services/api'
 import {
   getCart,
   clearCart,
@@ -14,7 +10,6 @@ import {
   updateCartQuantity,
 } from '../services/cartService'
 import { createOrder, generateOrderPayment, verifyOrderPayment } from '../services/orderService'
->>>>>>> Stashed changes
 import { getProducts } from '../services/productService'
 
 const cart = ref(getCart())
