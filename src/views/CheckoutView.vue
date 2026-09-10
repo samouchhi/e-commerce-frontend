@@ -1,19 +1,105 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import { assetUrl } from '../services/api'
-import { getCart, mergeCartItem, updateCartItem, updateCartQuantity } from '../services/cartService'
+import {
+  getCart,
+  clearCart,
+  mergeCartItem,
+  updateCartItem,
+  updateCartQuantity,
+} from '../services/cartService'
+import { createOrder, generateOrderPayment, verifyOrderPayment } from '../services/orderService'
 import { getProducts } from '../services/productService'
 
 const cart = ref(getCart())
+const refreshCart = () => (cart.value = getCart())
 const products = ref([])
 const logistics = ref([])
 const selectedLogisticId = ref('')
 const isLoadingLogistics = ref(true)
 const logisticsError = ref('')
 const isSubmitted = ref(false)
-const form = ref({ name: '', phone: '', address: '' })
+const isSubmitting = ref(false)
+const isVerifying = ref(false)
+const paymentCompleted = ref(false)
+const paymentExpired = ref(false)
+const paymentDetails = ref(null)
+const paymentAction = ref('')
+const remainingSeconds = ref(0)
+const countdownDuration = ref(1)
+let countdownTimer
+const qrTimeUp = computed(() => paymentDetails.value !== null && remainingSeconds.value === 0)
+const isMobileDevice =
+  typeof navigator !== 'undefined' &&
+  (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+const canOpenAbaApp = computed(
+  () =>
+    isMobileDevice &&
+    isSubmitted.value &&
+    !paymentCompleted.value &&
+    !paymentExpired.value &&
+    !qrTimeUp.value &&
+    typeof paymentDetails.value?.deeplink_url === 'string' &&
+    paymentDetails.value.deeplink_url.startsWith('abamobilebank://ababank.com?type=payway&qrcode='),
+)
+const paymentStatusMessage = computed(() => {
+  if (paymentAction.value === 'rqpay')
+    return 'Payment requested. Complete the payment in your banking app.'
+  if (paymentAction.value === 'processing-payment')
+    return 'Payment is processing. Waiting for confirmation from ABA.'
+  if (qrTimeUp.value) return 'This QR has expired. Checking whether your payment completed...'
+  return 'Waiting for payment. Confirmation is automatic.'
+})
+const countdownLabel = computed(() => {
+  const minutes = Math.floor(remainingSeconds.value / 60)
+    .toString()
+    .padStart(2, '0')
+  const seconds = (remainingSeconds.value % 60).toString().padStart(2, '0')
+  return minutes + ':' + seconds
+})
+const countdownProgress = computed(() =>
+  Math.min(100, (remainingSeconds.value / countdownDuration.value) * 100),
+)
+const startPaymentCountdown = (expiresAt) => {
+  clearInterval(countdownTimer)
+  const deadline = Date.parse(expiresAt)
+  const update = () => {
+    remainingSeconds.value = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+    if (remainingSeconds.value === 0) clearInterval(countdownTimer)
+  }
+  update()
+  countdownDuration.value = Math.max(1, remainingSeconds.value)
+  if (remainingSeconds.value > 0) countdownTimer = setInterval(update, 1000)
+}
+let paymentPollTimer
+let paymentCheckController
+let paymentSession = 0
+let checkoutUnmounted = false
+
+const stopPaymentPolling = () => {
+  paymentSession += 1
+  clearInterval(countdownTimer)
+  clearTimeout(paymentPollTimer)
+  paymentPollTimer = undefined
+  paymentCheckController?.abort()
+  paymentCheckController = undefined
+  isVerifying.value = false
+}
+
+const schedulePaymentCheck = (delay = 3000) => {
+  clearTimeout(paymentPollTimer)
+  if (isSubmitted.value && !paymentCompleted.value && !paymentExpired.value) {
+    paymentPollTimer = setTimeout(checkPayment, delay)
+  }
+}
+const errorMessage = ref('')
+const paymentQrImage = ref('')
+const paymentWarning = ref('')
+const order = ref(null)
+const form = ref({ name: '', phone: '', address: '', city: '', note: '' })
 const abaKhqrLogo = '/payment-abakhqr.webp'
 const cambodiaProvinces = [
   'Banteay Meanchey',
@@ -109,17 +195,179 @@ const loadLogistics = async () => {
   }
 }
 
-const submitOrder = () => {
-  isSubmitted.value = true
+const apiError = (error, fallback) =>
+  error.details?.message || error.details?.error || error.message || fallback
+
+const orderIdFrom = (payload) =>
+  payload?.id || payload?.order_id || payload?.data?.id || payload?.data?.order_id
+
+const closePaymentModal = () => {
+  stopPaymentPolling()
+  isSubmitted.value = false
+  paymentCompleted.value = false
+  paymentExpired.value = false
+  paymentAction.value = ''
+  paymentWarning.value = ''
+  paymentDetails.value = null
+  remainingSeconds.value = 0
+  if (paymentQrImage.value) {
+    URL.revokeObjectURL(paymentQrImage.value)
+    paymentQrImage.value = ''
+  }
+}
+
+const submitOrder = async () => {
+  refreshCart()
+  if (
+    !cart.value.length ||
+    isSubmitting.value ||
+    isLoadingLogistics.value ||
+    !selectedLogistic.value
+  )
+    return
+  if (
+    !form.value.name.trim() ||
+    !form.value.phone.trim() ||
+    !form.value.address.trim() ||
+    !form.value.city.trim()
+  )
+    return
+  errorMessage.value = ''
+  isSubmitting.value = true
+  try {
+    const createdOrder = await createOrder({
+      name: form.value.name.trim(),
+      phone: form.value.phone.trim(),
+      address: form.value.address.trim(),
+      city: form.value.city.trim(),
+      note: form.value.note.trim() || null,
+      order_number: '',
+      logistic_id: Number(selectedLogisticId.value),
+      total_amount: Number(total.value.toFixed(2)),
+      subtotal_amount: Number(subtotal.value.toFixed(2)),
+      shipping_cost: Number(deliveryFee.value.toFixed(2)),
+      payment_status: 'pending',
+      shipping_status: 'pending',
+      items: cart.value.map((item) => ({
+        product_variant_id: Number(item.variantId),
+        quantity: Number(item.quantity),
+      })),
+    })
+    if (checkoutUnmounted) return
+    const orderId = orderIdFrom(createdOrder)
+    if (!orderId) throw new Error('The order response did not include an order ID.')
+    order.value = createdOrder?.data || createdOrder
+    stopPaymentPolling()
+    paymentCompleted.value = false
+    paymentExpired.value = false
+    paymentAction.value = ''
+    isSubmitted.value = true
+    const session = paymentSession
+    try {
+      const payment = await generateOrderPayment(orderId)
+      if (!isSubmitted.value || session !== paymentSession) return
+      paymentDetails.value = payment
+      paymentQrImage.value = payment.qr_image
+      startPaymentCountdown(payment.expires_at)
+      schedulePaymentCheck()
+      if (canOpenAbaApp.value) {
+        try {
+          window.location.assign(payment.deeplink_url)
+        } catch {
+          // Browsers may require a direct tap; keep the QR and app button available.
+        }
+      }
+    } catch (error) {
+      if (!isSubmitted.value || session !== paymentSession) return
+      errorMessage.value = apiError(
+        error,
+        'The order was created, but KHQR could not be generated.',
+      )
+    }
+  } catch (error) {
+    errorMessage.value = apiError(error, 'Your order could not be created. Please try again.')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const checkPayment = async () => {
+  const orderId = orderIdFrom(order.value)
+  if (
+    !isSubmitted.value ||
+    !orderId ||
+    isVerifying.value ||
+    paymentCompleted.value ||
+    paymentExpired.value
+  )
+    return
+  clearTimeout(paymentPollTimer)
+  const session = paymentSession
+  const controller = new AbortController()
+  paymentCheckController = controller
+  isVerifying.value = true
+  let nextCheckDelay = 3000
+
+  try {
+    const result = await verifyOrderPayment(orderId, { signal: controller.signal })
+    if (!isSubmitted.value || session !== paymentSession) return
+    errorMessage.value = ''
+    paymentWarning.value = ''
+
+    paymentAction.value = result.action || ''
+
+    if (result.success === true && result.status === 'paid') {
+      clearCart()
+      paymentCompleted.value = true
+      stopPaymentPolling()
+    } else if (result.status === 'expired') {
+      paymentExpired.value = true
+      remainingSeconds.value = 0
+      paymentQrImage.value = ''
+      paymentWarning.value = 'This QR has expired. Close this dialog to start a new checkout.'
+      stopPaymentPolling()
+    }
+  } catch (error) {
+    if (!isSubmitted.value || session !== paymentSession || error.name === 'AbortError') return
+    if ([401, 403, 404, 409, 422].includes(error.status)) {
+      errorMessage.value = apiError(error, 'Payment status could not be checked.')
+      paymentDetails.value = null
+      paymentQrImage.value = ''
+      stopPaymentPolling()
+    } else {
+      nextCheckDelay = error.status === 429 ? 30000 : 3000
+      errorMessage.value =
+        error.status === 429
+          ? 'Payment checks are temporarily limited. Retrying shortly.'
+          : 'Payment status is temporarily unavailable. We will keep checking automatically.'
+    }
+  } finally {
+    if (session === paymentSession) {
+      paymentCheckController = undefined
+      isVerifying.value = false
+      schedulePaymentCheck(nextCheckDelay)
+    }
+  }
 }
 
 onMounted(async () => {
+  window.addEventListener('cart-updated', refreshCart)
+  window.addEventListener('storage', refreshCart)
   try {
     products.value = await getProducts()
   } catch {
     products.value = []
   }
   await loadLogistics()
+})
+
+onUnmounted(() => {
+  checkoutUnmounted = true
+  isSubmitted.value = false
+  stopPaymentPolling()
+  window.removeEventListener('cart-updated', refreshCart)
+  window.removeEventListener('storage', refreshCart)
+  if (paymentQrImage.value) URL.revokeObjectURL(paymentQrImage.value)
 })
 </script>
 
@@ -129,14 +377,155 @@ onMounted(async () => {
     <p class="eyebrow">Checkout</p>
     <h2>Complete your order.</h2>
 
-    <div v-if="isSubmitted" class="checkout-success" role="status">
-      <p class="eyebrow">Order details received</p>
-      <h2>Thanks, {{ form.name }}.</h2>
-      <p>We will contact you at +855 {{ form.phone }} to confirm delivery and ABA KHQR payment.</p>
-      <RouterLink to="/" class="checkout-button">Back to shop</RouterLink>
-    </div>
+    <Teleport to="body">
+      <div
+        v-if="isSubmitted"
+        class="payment-modal"
+        role="presentation"
+        @click.self="closePaymentModal"
+      >
+        <section
+          class="payment-modal__dialog aba-payment-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="payment-modal-title"
+        >
+          <header class="aba-payment-header">
+            <button
+              class="aba-payment-back"
+              type="button"
+              aria-label="Close payment dialog"
+              @click="closePaymentModal"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg>
+            </button>
+            <h2 id="payment-modal-title">ABA KHQR</h2>
+            <div
+              v-if="paymentDetails && !paymentCompleted"
+              class="aba-countdown"
+              role="timer"
+              aria-label="Time left to scan QR"
+              aria-live="off"
+            >
+              <span
+                class="aba-countdown-ring"
+                :style="{ '--progress': countdownProgress + '%' }"
+                aria-hidden="true"
+              ></span>
+              <span>{{ countdownLabel }}</span>
+            </div>
+          </header>
+          <Transition name="payment-step" mode="out-in">
+            <div
+              v-if="paymentCompleted"
+              key="complete"
+              class="payment-panel payment-panel--complete"
+              role="status"
+            >
+              <div class="payment-success-icon" aria-hidden="true">
+                <svg viewBox="0 0 48 48"><path d="m13 24 8 8 15-16" /></svg>
+              </div>
+              <p class="eyebrow">Payment received</p>
+              <h2>Order completed.</h2>
+              <p class="payment-description">
+                Thank you for shopping with us. Your payment is confirmed and your order is being
+                prepared.
+              </p>
+              <div class="payment-actions">
+                <RouterLink to="/" class="checkout-button" @click="closePaymentModal"
+                  >Continue shopping</RouterLink
+                >
+              </div>
+            </div>
+            <div v-else key="scan" class="payment-panel">
+              <div v-if="paymentDetails && !paymentExpired && !qrTimeUp" class="aba-khqr-card">
+                <div class="aba-khqr-banner">
+                  <img src="/aba-khqr-header.svg" alt="KHQR" width="60" height="14" />
+                </div>
+                <div class="aba-khqr-recipient">
+                  <p v-if="paymentDetails.merchant_name">{{ paymentDetails.merchant_name }}</p>
+                  <div>
+                    <strong>{{ Number(paymentDetails.amount).toFixed(2) }}</strong
+                    ><span>{{ paymentDetails.currency }}</span>
+                  </div>
+                </div>
+                <div class="aba-khqr-code">
+                  <img
+                    class="aba-khqr-image"
+                    :src="paymentQrImage"
+                    alt="Scan to pay with KHQR"
+                    width="224"
+                    height="224"
+                  />
+                  <img
+                    class="aba-khqr-emblem"
+                    src="/aba-bakong.svg"
+                    alt=""
+                    aria-hidden="true"
+                    width="32"
+                    height="32"
+                  />
+                </div>
+              </div>
+              <p v-if="paymentDetails && !paymentExpired && !qrTimeUp" class="aba-scan-description">
+                Scan with mobile banking app<br />that supports KHQR
+              </p>
+              <p v-if="!paymentDetails && !errorMessage" class="payment-description" role="status">
+                Preparing your QR code...
+              </p>
+              <p
+                v-if="paymentDetails && !paymentExpired"
+                class="aba-auto-status"
+                role="status"
+                aria-atomic="true"
+              >
+                {{ paymentStatusMessage }}
+              </p>
+              <Transition name="payment-step">
+                <div
+                  v-if="paymentWarning || errorMessage"
+                  class="payment-notice"
+                  :class="{ 'payment-notice--error': errorMessage }"
+                  role="alert"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3 2 21h20L12 3Z" />
+                    <path d="M12 9v5m0 3v1" />
+                  </svg>
+                  <div>
+                    <strong>{{
+                      errorMessage
+                        ? 'Payment unavailable'
+                        : paymentExpired
+                          ? 'QR expired'
+                          : 'Payment not received yet'
+                    }}</strong>
+                    <p>{{ errorMessage || paymentWarning }}</p>
+                    <p v-if="!errorMessage && !paymentExpired">
+                      Finish paying in your banking app. Confirmation will appear automatically.
+                    </p>
+                  </div>
+                </div>
+              </Transition>
+              <div class="payment-actions">
+                <a v-if="canOpenAbaApp" :href="paymentDetails.deeplink_url" class="checkout-button">
+                  Open ABA Mobile
+                </a>
+                <button
+                  class="checkout-button checkout-button--secondary"
+                  type="button"
+                  @click="closePaymentModal"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </section>
+      </div>
+    </Teleport>
 
-    <form v-else class="checkout-layout" @submit.prevent="submitOrder">
+    <form v-if="!isSubmitted" class="checkout-layout" @submit.prevent="submitOrder">
       <div class="checkout-form">
         <section class="checkout-section">
           <p class="checkout-section__label">Contact information</p>
@@ -172,13 +561,13 @@ onMounted(async () => {
             </span>
           </label>
           <label>
-            Address
+            City / province (required)
             <span class="field-control">
               <svg class="field-control__icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z" />
                 <circle cx="12" cy="10" r="2.2" />
               </svg>
-              <select v-model="form.address" required>
+              <select v-model="form.city" required autocomplete="address-level1">
                 <option disabled value="">Select province</option>
                 <option v-for="province in cambodiaProvinces" :key="province" :value="province">
                   {{ province }}
@@ -186,11 +575,29 @@ onMounted(async () => {
               </select>
             </span>
           </label>
+          <label>
+            Address (required)
+            <textarea
+              v-model.trim="form.address"
+              required
+              autocomplete="street-address"
+              rows="2"
+              placeholder="House number, street, village or district"
+            ></textarea>
+          </label>
+          <label>
+            Delivery note (optional)
+            <textarea
+              v-model.trim="form.note"
+              rows="2"
+              placeholder="Landmark or delivery instructions"
+            ></textarea>
+          </label>
         </section>
 
         <section class="checkout-section">
           <p class="checkout-section__label">Select delivery</p>
-          <p v-if="isLoadingLogistics" class="status"></p>
+          <p v-if="isLoadingLogistics" class="status" role="status">Loading delivery options...</p>
           <p v-else-if="logisticsError" class="status status--error">{{ logisticsError }}</p>
           <label v-for="logistic in logistics" v-else :key="logistic.id" class="delivery-option">
             <input
@@ -288,12 +695,13 @@ onMounted(async () => {
         <div class="checkout-summary__total">
           <span>Total</span><strong>{{ formatPrice(total) }}</strong>
         </div>
+        <p v-if="errorMessage" class="status status--error" role="alert">{{ errorMessage }}</p>
         <button
           class="checkout-button"
           type="submit"
-          :disabled="isLoadingLogistics || !logistics.length"
+          :disabled="!cart.length || isSubmitting || isLoadingLogistics || !selectedLogistic"
         >
-          Review order
+          {{ isSubmitting ? 'Creating order...' : 'Review order' }}
         </button>
       </aside>
     </form>

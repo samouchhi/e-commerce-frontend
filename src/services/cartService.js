@@ -15,6 +15,8 @@ const saveCart = (cart) => {
 
 export const getCart = () => readCart()
 
+export const clearCart = () => saveCart([])
+
 export const addToCart = (item) => {
   const cart = readCart()
   const existing = cart.find((cartItem) => cartItem.variantId === item.variantId)
