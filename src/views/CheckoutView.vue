@@ -270,6 +270,13 @@ const submitOrder = async () => {
       paymentQrImage.value = payment.qr_image
       startPaymentCountdown(payment.expires_at)
       schedulePaymentCheck()
+      if (canOpenAbaApp.value) {
+        try {
+          window.location.assign(payment.deeplink_url)
+        } catch {
+          // Browsers may require a direct tap; keep the QR and app button available.
+        }
+      }
     } catch (error) {
       if (!isSubmitted.value || session !== paymentSession) return
       errorMessage.value = apiError(

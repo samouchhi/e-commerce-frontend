@@ -21,6 +21,7 @@ function deferred() {
 }
 
 async function checkoutHarness({
+  openApp = () => {},
   device = { userAgent: 'iPhone', platform: 'iPhone', maxTouchPoints: 5 },
   verify = async () => ({ status: 'pending', success: false }),
   generate = async () => ({
@@ -39,6 +40,7 @@ async function checkoutHarness({
   const intervals = new Map()
   let nowMs = TEST_NOW
   const requests = []
+  const appLaunches = []
   const unmount = []
   const context = createContext({
     navigator: device,
@@ -54,7 +56,16 @@ async function checkoutHarness({
     clearInterval: (id) => intervals.delete(id),
     AbortController,
     URL,
-    window: { addEventListener() {}, removeEventListener() {} },
+    window: {
+      addEventListener() {},
+      removeEventListener() {},
+      location: {
+        assign(url) {
+          appLaunches.push(url)
+          openApp(url)
+        },
+      },
+    },
     setTimeout: (callback, delay) => {
       timers.set(++timerId, { callback, delay })
       return timerId
@@ -125,6 +136,7 @@ async function checkoutHarness({
     },
     timers,
     requests,
+    appLaunches,
     get clearCount() {
       return clearCount
     },
@@ -356,6 +368,7 @@ test('desktop, missing links and unexpected link destinations do not show the AB
   })
   await desktop.view.submitOrder()
   assert.equal(desktop.view.canOpenAbaApp.value, false)
+  assert.equal(desktop.appLaunches.length, 0)
   desktop.view.closePaymentModal()
   const mobile = await checkoutHarness()
   await mobile.view.submitOrder()
@@ -364,4 +377,67 @@ test('desktop, missing links and unexpected link destinations do not show the AB
     assert.equal(mobile.view.canOpenAbaApp.value, false)
   }
   mobile.view.closePaymentModal()
+})
+
+test('mobile attempts to open ABA once after QR generation and never during polling', async () => {
+  const h = await checkoutHarness()
+  assert.equal(h.appLaunches.length, 0)
+  await h.view.submitOrder()
+  assert.deepEqual(h.appLaunches, [h.view.paymentDetails.value.deeplink_url])
+  assert.equal(h.view.paymentCompleted.value, false)
+  await h.tick()
+  await h.tick()
+  assert.equal(h.appLaunches.length, 1)
+  assert.equal(h.view.canOpenAbaApp.value, true)
+  assert.equal(h.clearCount, 0)
+  h.view.closePaymentModal()
+})
+
+test('a blocked automatic app launch keeps the manual button, QR and polling available', async () => {
+  const h = await checkoutHarness({
+    openApp() {
+      throw new Error('Browser requires a user gesture')
+    },
+  })
+  await h.view.submitOrder()
+  assert.equal(h.appLaunches.length, 1)
+  assert.equal(h.view.errorMessage.value, '')
+  assert.equal(h.view.canOpenAbaApp.value, true)
+  assert.ok(h.view.paymentQrImage.value)
+  assert.equal(h.timers.size, 1)
+  await h.tick()
+  assert.equal(h.appLaunches.length, 1)
+  h.view.closePaymentModal()
+})
+
+test('expired or closed payment sessions never automatically open ABA', async () => {
+  const expired = await checkoutHarness({
+    generate: async () => ({
+      qr_image: 'data:image/png;base64,test',
+      deeplink_url: 'abamobilebank://ababank.com?type=payway&qrcode=test',
+      expires_at: new Date(TEST_NOW - 1000).toISOString(),
+    }),
+  })
+  await expired.view.submitOrder()
+  assert.equal(expired.appLaunches.length, 0)
+  expired.view.closePaymentModal()
+
+  const pending = deferred()
+  const started = deferred()
+  const closed = await checkoutHarness({
+    generate: () => {
+      started.resolve()
+      return pending.promise
+    },
+  })
+  const submitting = closed.view.submitOrder()
+  await started.promise
+  closed.view.closePaymentModal()
+  pending.resolve({
+    qr_image: 'data:image/png;base64,test',
+    deeplink_url: 'abamobilebank://ababank.com?type=payway&qrcode=test',
+    expires_at: new Date(TEST_NOW + 180000).toISOString(),
+  })
+  await submitting
+  assert.equal(closed.appLaunches.length, 0)
 })
