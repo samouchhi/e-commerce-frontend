@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import { assetUrl } from '../services/api'
@@ -13,6 +13,13 @@ const selectedLogisticId = ref('')
 const isLoadingLogistics = ref(true)
 const logisticsError = ref('')
 const isSubmitted = ref(false)
+const isSubmitting = ref(false)
+const isVerifying = ref(false)
+const paymentCompleted = ref(false)
+const errorMessage = ref('')
+const paymentQrImage = ref('')
+const verification = ref(null)
+const order = ref(null)
 const form = ref({ name: '', phone: '', address: '' })
 const abaKhqrLogo = '/payment-abakhqr.webp'
 const cambodiaProvinces = [
@@ -109,8 +116,82 @@ const loadLogistics = async () => {
   }
 }
 
-const submitOrder = () => {
-  isSubmitted.value = true
+const apiError = (error, fallback) =>
+  error.details?.message || error.details?.error || error.message || fallback
+
+const orderIdFrom = (payload) =>
+  payload?.id || payload?.order_id || payload?.data?.id || payload?.data?.order_id
+
+const paymentValue = (payload, keys) => {
+  for (const key of keys) {
+    const value = payload?.[key] ?? payload?.data?.[key]
+    if (value) return value
+  }
+  return ''
+}
+
+const closePaymentModal = () => {
+  isSubmitted.value = false
+  paymentCompleted.value = false
+  if (paymentQrImage.value) {
+    URL.revokeObjectURL(paymentQrImage.value)
+    paymentQrImage.value = ''
+  }
+}
+
+const submitOrder = async () => {
+  errorMessage.value = ''
+  isSubmitting.value = true
+  try {
+    const createdOrder = await createOrder({
+      order_number: '',
+      logistic_id: Number(selectedLogisticId.value),
+      total_amount: Number(total.value.toFixed(2)),
+      subtotal_amount: Number(subtotal.value.toFixed(2)),
+      shipping_cost: Number(deliveryFee.value.toFixed(2)),
+      payment_status: 'pending',
+      shipping_status: 'pending',
+      items: cart.value.map((item) => ({
+        product_variant_id: Number(item.variantId),
+        quantity: Number(item.quantity),
+      })),
+    })
+    const orderId = orderIdFrom(createdOrder)
+    if (!orderId) throw new Error('The order response did not include an order ID.')
+    order.value = createdOrder?.data || createdOrder
+    isSubmitted.value = true
+    try {
+      paymentQrImage.value = await generateOrderPayment(orderId)
+    } catch (error) {
+      errorMessage.value = apiError(
+        error,
+        'The order was created, but KHQR could not be generated.',
+      )
+    }
+  } catch (error) {
+    errorMessage.value = apiError(error, 'Your order could not be created. Please try again.')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const checkPayment = async () => {
+  const orderId = orderIdFrom(order.value)
+  if (!orderId) return
+  errorMessage.value = ''
+  isVerifying.value = true
+  try {
+    verification.value = await verifyOrderPayment(orderId)
+    const status = paymentValue(verification.value, ['payment_status', 'status', 'message'])
+    if (/completed|paid|success/i.test(status)) {
+      clearCart()
+      paymentCompleted.value = true
+    }
+  } catch (error) {
+    errorMessage.value = apiError(error, 'Payment status could not be checked.')
+  } finally {
+    isVerifying.value = false
+  }
 }
 
 onMounted(async () => {
@@ -121,6 +202,10 @@ onMounted(async () => {
   }
   await loadLogistics()
 })
+
+onUnmounted(() => {
+  if (paymentQrImage.value) URL.revokeObjectURL(paymentQrImage.value)
+})
 </script>
 
 <template>
@@ -129,14 +214,76 @@ onMounted(async () => {
     <p class="eyebrow">Checkout</p>
     <h2>Complete your order.</h2>
 
-    <div v-if="isSubmitted" class="checkout-success" role="status">
-      <p class="eyebrow">Order details received</p>
-      <h2>Thanks, {{ form.name }}.</h2>
-      <p>We will contact you at +855 {{ form.phone }} to confirm delivery and ABA KHQR payment.</p>
-      <RouterLink to="/" class="checkout-button">Back to shop</RouterLink>
-    </div>
+    <Teleport to="body">
+      <div
+        v-if="isSubmitted"
+        class="payment-modal"
+        role="presentation"
+        @click.self="closePaymentModal"
+      >
+        <section
+          class="payment-modal__dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="payment-modal-title"
+        >
+          <button
+            class="payment-modal__close"
+            type="button"
+            aria-label="Close payment dialog"
+            @click="closePaymentModal"
+          >
+            ×
+          </button>
+          <p class="eyebrow">Order {{ orderIdFrom(order) }}</p>
+          <template v-if="paymentCompleted">
+            <h2 id="payment-modal-title">Thank you for your order.</h2>
+            <p>Your payment is complete. We are preparing your order now.</p>
+            <div class="payment-actions">
+              <button class="checkout-button" type="button" @click="closePaymentModal">
+                Continue shopping
+              </button>
+            </div>
+          </template>
+          <template v-else>
+            <h2 id="payment-modal-title">Scan to pay.</h2>
+            <p>Open ABA Mobile and scan the KHQR below to complete your payment.</p>
+            <img
+              v-if="paymentQrImage"
+              class="payment-qr"
+              :src="paymentQrImage"
+              alt="KHQR payment code"
+            />
+            <p v-if="errorMessage" class="status status--error" role="alert">{{ errorMessage }}</p>
+            <p v-if="verification" class="payment-status" role="status">
+              Payment status:
+              <strong>{{
+                paymentValue(verification, ['payment_status', 'status', 'message'])
+              }}</strong>
+            </p>
+            <div class="payment-actions">
+              <button
+                class="checkout-button"
+                type="button"
+                :disabled="isVerifying"
+                @click="checkPayment"
+              >
+                {{ isVerifying ? 'Checking...' : 'Check payment' }}
+              </button>
+              <button
+                class="checkout-button checkout-button--secondary"
+                type="button"
+                @click="closePaymentModal"
+              >
+                Close
+              </button>
+            </div>
+          </template>
+        </section>
+      </div>
+    </Teleport>
 
-    <form v-else class="checkout-layout" @submit.prevent="submitOrder">
+    <form v-if="!isSubmitted" class="checkout-layout" @submit.prevent="submitOrder">
       <div class="checkout-form">
         <section class="checkout-section">
           <p class="checkout-section__label">Contact information</p>

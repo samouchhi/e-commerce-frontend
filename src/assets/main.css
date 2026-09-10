@@ -1287,6 +1287,100 @@ h1 {
   line-height: 1.6;
   margin-bottom: 2rem;
 }
+.payment-modal {
+  align-items: center;
+  background: rgb(32 35 33 / 72%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1.25rem;
+  position: fixed;
+  z-index: 20;
+}
+.payment-modal__dialog {
+  background: var(--paper);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 25%);
+  max-height: calc(100vh - 2.5rem);
+  max-width: 540px;
+  overflow-y: auto;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  position: relative;
+  width: 100%;
+}
+.payment-modal__close {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 2rem;
+  height: 2.75rem;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  width: 2.75rem;
+}
+.payment-modal__close:hover {
+  color: var(--accent);
+}
+.payment-modal__dialog h2 {
+  color: var(--ink);
+  font:
+    500 clamp(2rem, 5vw, 3.5rem)/1 'Fraunces',
+    Georgia,
+    serif;
+  margin: 1rem 0;
+}
+.payment-modal__dialog > p:not(.eyebrow):not(.payment-code):not(.status):not(.payment-status) {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+.payment-qr {
+  background: white;
+  border: 1px solid var(--line);
+  display: block;
+  height: min(60vw, 280px);
+  margin: 1.5rem 0;
+  object-fit: contain;
+  padding: 0.75rem;
+  width: min(60vw, 280px);
+}
+.payment-code {
+  background: var(--accent-soft);
+  color: var(--ink) !important;
+  font:
+    0.72rem/1.5 'Space Mono',
+    monospace;
+  overflow-wrap: anywhere;
+  padding: 0.8rem;
+}
+.payment-status {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  padding-top: 1rem;
+}
+.payment-status strong {
+  color: var(--ink);
+}
+.payment-actions {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 280px;
+}
+.checkout-button--secondary {
+  background: transparent;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+}
+.checkout-button--secondary:hover {
+  background: var(--ink);
+  color: white;
+}
 
 .back-link {
   color: var(--ink);
