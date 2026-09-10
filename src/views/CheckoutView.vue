@@ -26,7 +26,7 @@ const isVerifying = ref(false)
 const paymentCompleted = ref(false)
 const errorMessage = ref('')
 const paymentQrImage = ref('')
-const verification = ref(null)
+const paymentWarning = ref('')
 const order = ref(null)
 const form = ref({ name: '', phone: '', address: '' })
 const abaKhqrLogo = '/payment-abakhqr.webp'
@@ -130,17 +130,10 @@ const apiError = (error, fallback) =>
 const orderIdFrom = (payload) =>
   payload?.id || payload?.order_id || payload?.data?.id || payload?.data?.order_id
 
-const paymentValue = (payload, keys) => {
-  for (const key of keys) {
-    const value = payload?.[key] ?? payload?.data?.[key]
-    if (value) return value
-  }
-  return ''
-}
-
 const closePaymentModal = () => {
   isSubmitted.value = false
   paymentCompleted.value = false
+  paymentWarning.value = ''
   if (paymentQrImage.value) {
     URL.revokeObjectURL(paymentQrImage.value)
     paymentQrImage.value = ''
@@ -194,18 +187,26 @@ const submitOrder = async () => {
 
 const checkPayment = async () => {
   const orderId = orderIdFrom(order.value)
-  if (!orderId) return
+  if (!orderId || isVerifying.value || paymentCompleted.value) return
   errorMessage.value = ''
+  paymentWarning.value = ''
   isVerifying.value = true
   try {
-    verification.value = await verifyOrderPayment(orderId)
-    const status = paymentValue(verification.value, ['payment_status', 'status', 'message'])
-    if (/completed|paid|success/i.test(status)) {
+    const result = await verifyOrderPayment(orderId)
+    if (!isSubmitted.value) return
+    if (result.success === true) {
       clearCart()
       paymentCompleted.value = true
+    } else {
+      paymentWarning.value = result.message || 'Payment is not completed.'
     }
   } catch (error) {
-    errorMessage.value = apiError(error, 'Payment status could not be checked.')
+    if (!isSubmitted.value) return
+    if (error.details?.success === false) {
+      paymentWarning.value = error.details.message || 'Payment is not completed.'
+    } else {
+      errorMessage.value = apiError(error, 'Payment status could not be checked. Please try again.')
+    }
   } finally {
     isVerifying.value = false
   }
@@ -256,50 +257,87 @@ onUnmounted(() => {
           >
             ×
           </button>
-          <p class="eyebrow">Order {{ orderIdFrom(order) }}</p>
-          <template v-if="paymentCompleted">
-            <h2 id="payment-modal-title">Thank you for your order.</h2>
-            <p>Your payment is complete. We are preparing your order now.</p>
-            <div class="payment-actions">
-              <button class="checkout-button" type="button" @click="closePaymentModal">
-                Continue shopping
-              </button>
+          <Transition name="payment-step" mode="out-in">
+            <div
+              v-if="paymentCompleted"
+              key="complete"
+              class="payment-panel payment-panel--complete"
+              role="status"
+            >
+              <div class="payment-success-icon" aria-hidden="true">
+                <svg viewBox="0 0 48 48"><path d="m13 24 8 8 15-16" /></svg>
+              </div>
+              <p class="eyebrow">Payment received</p>
+              <h2 id="payment-modal-title">Order completed.</h2>
+              <p class="payment-description">
+                Thank you for shopping with us. Your payment is confirmed and your order is being
+                prepared.
+              </p>
+              <div class="payment-actions">
+                <RouterLink to="/" class="checkout-button" @click="closePaymentModal"
+                  >Continue shopping</RouterLink
+                >
+              </div>
             </div>
-          </template>
-          <template v-else>
-            <h2 id="payment-modal-title">Scan to pay.</h2>
-            <p>Open ABA Mobile and scan the KHQR below to complete your payment.</p>
-            <img
-              v-if="paymentQrImage"
-              class="payment-qr"
-              :src="paymentQrImage"
-              alt="KHQR payment code"
-            />
-            <p v-if="errorMessage" class="status status--error" role="alert">{{ errorMessage }}</p>
-            <p v-if="verification" class="payment-status" role="status">
-              Payment status:
-              <strong>{{
-                paymentValue(verification, ['payment_status', 'status', 'message'])
-              }}</strong>
-            </p>
-            <div class="payment-actions">
-              <button
-                class="checkout-button"
-                type="button"
-                :disabled="isVerifying"
-                @click="checkPayment"
-              >
-                {{ isVerifying ? 'Checking...' : 'Check payment' }}
-              </button>
-              <button
-                class="checkout-button checkout-button--secondary"
-                type="button"
-                @click="closePaymentModal"
-              >
-                Close
-              </button>
+            <div v-else key="scan" class="payment-panel">
+              <h2 id="payment-modal-title">Scan to pay.</h2>
+              <p class="payment-description">
+                Scan the KHQR code with your mobile banking app, then check your payment below.
+              </p>
+              <img
+                v-if="paymentQrImage"
+                class="payment-qr"
+                :src="paymentQrImage"
+                alt="KHQR payment code"
+              />
+              <p v-else-if="!errorMessage" class="payment-description" role="status">
+                Preparing your QR code...
+              </p>
+              <Transition name="payment-step">
+                <div
+                  v-if="paymentWarning || errorMessage"
+                  class="payment-notice"
+                  :class="{ 'payment-notice--error': errorMessage }"
+                  role="alert"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3 2 21h20L12 3Z" />
+                    <path d="M12 9v5m0 3v1" />
+                  </svg>
+                  <div>
+                    <strong>{{
+                      errorMessage ? 'Unable to check payment' : 'Payment not received yet'
+                    }}</strong>
+                    <p>{{ errorMessage || paymentWarning }}</p>
+                    <p v-if="!errorMessage">Finish paying in your banking app, then try again.</p>
+                  </div>
+                </div>
+              </Transition>
+              <div class="payment-actions">
+                <button
+                  class="checkout-button"
+                  type="button"
+                  :disabled="isVerifying || !paymentQrImage"
+                  @click="checkPayment"
+                >
+                  {{
+                    isVerifying
+                      ? 'Checking payment...'
+                      : paymentWarning
+                        ? 'Check again'
+                        : 'Check payment'
+                  }}
+                </button>
+                <button
+                  class="checkout-button checkout-button--secondary"
+                  type="button"
+                  @click="closePaymentModal"
+                >
+                  Close
+                </button>
+              </div>
             </div>
-          </template>
+          </Transition>
         </section>
       </div>
     </Teleport>
