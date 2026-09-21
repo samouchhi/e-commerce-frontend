@@ -1,7 +1,10 @@
 export const formatPrice = (price) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(price || 0))
 
-export const formatExpiry = (date) => (date ? String(date).slice(0, 10) : '')
+const timeZone = import.meta.env.VITE_TIME_ZONE || 'Asia/Phnom_Penh'
+
+export const formatExpiry = (date) =>
+  date ? new Date(date).toLocaleDateString('sv-SE', { timeZone }) : ''
 
 const activeVariant = (product) =>
   product?.variants?.find((variant) => variant.is_active && Number(variant.stock_qty) > 0) ||

@@ -38,7 +38,7 @@ const pricing = computed(() => pricingFor(props.product))
         v-if="imageUrl(product)"
         :src="imageUrl(product)"
         :alt="product.name"
-        class="m-0 block h-full w-full object-cover transition-transform duration-500 motion-reduce:transition-none"
+        class="rounded m-0 block h-full w-full object-cover"
         loading="lazy"
       />
       <div

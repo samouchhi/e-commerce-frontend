@@ -159,7 +159,7 @@ watch(() => route.params.slug, loadProduct)
       class="grid grid-cols-[minmax(0,1fr)_minmax(300px,0.9fr)] gap-[clamp(1.5rem,3vw,2.5rem)] max-md:grid-cols-1"
     >
       <div class="min-w-0">
-        <div class="relative aspect-[4/5] max-h-[600px] overflow-hidden bg-accent-soft">
+        <div class="relative object-cover overflow-hidden bg-accent-soft">
           <Transition name="gallery-image">
             <img
               v-if="imageUrl(images[selectedImage])"
