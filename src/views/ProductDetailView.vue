@@ -178,7 +178,7 @@ watch(() => route.params.slug, loadProduct)
           </Transition>
           <template v-if="images.length > 1">
             <button
-              class="absolute top-1/2 left-4 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center border border-ink bg-paper text-[1.25rem] text-ink hover:bg-accent hover:text-white focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent"
+              class="rounded-full absolute top-1/2 left-4 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center border border-ink bg-paper text-[1.25rem] text-ink"
               type="button"
               :aria-label="t('productDetail.previousImage')"
               @click="previousImage"
@@ -186,7 +186,7 @@ watch(() => route.params.slug, loadProduct)
               ←
             </button>
             <button
-              class="absolute top-1/2 right-4 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center border border-ink bg-paper text-[1.25rem] text-ink hover:bg-accent hover:text-white focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent"
+              class="rounded-full absolute top-1/2 right-4 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center border border-ink bg-paper text-[1.25rem] text-ink"
               type="button"
               :aria-label="t('productDetail.nextImage')"
               @click="nextImage"
