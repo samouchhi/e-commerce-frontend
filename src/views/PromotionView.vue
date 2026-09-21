@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import ProductList from '../components/product/ProductList.vue'
 import { getProducts } from '../services/productService'
 import { formatExpiry, groupPromotions, isOnPromotion } from '../utils/pricing'
+import { t } from '../services/i18n'
 
 const catalogClass =
   'mx-auto max-w-[1200px] px-[clamp(1.25rem,4vw,4.5rem)] py-[clamp(2rem,4vw,3.5rem)]'
@@ -34,7 +35,7 @@ onMounted(async () => {
   <main :class="catalogClass">
     <div class="mb-[clamp(1.5rem,3vw,2.5rem)] justify-items-center">
       <h1 class="mt-6 text-[clamp(1.8rem,4vw,2.7rem)] font-medium tracking-[-0.04em] uppercase">
-        Promotions
+        {{ t('promotions.title') }}
       </h1>
     </div>
 
@@ -55,9 +56,7 @@ onMounted(async () => {
       </div>
 
       <p v-else-if="error" :class="[statusClass, 'text-danger']">{{ error }}</p>
-      <p v-else-if="!promotions.length" :class="statusClass">
-        No promotions are running right now. Check back soon.
-      </p>
+      <p v-else-if="!promotions.length" :class="statusClass">{{ t('promotions.empty') }}</p>
 
       <div v-else>
         <div
@@ -77,7 +76,7 @@ onMounted(async () => {
               {{ group.discount.description }}
             </p>
             <p v-if="group.discount.end_date" class="text-[0.88rem] font-normal text-muted">
-              Expire on {{ formatExpiry(group.discount.end_date) }}
+              {{ t('promotions.expireOn') }} {{ formatExpiry(group.discount.end_date) }}
             </p>
           </div>
           <ProductList :products="group.products" />

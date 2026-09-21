@@ -6,15 +6,16 @@ import ProductList from '../components/product/ProductList.vue'
 import { getBanners } from '../services/bannerService'
 import { getProducts } from '../services/productService'
 import { formatExpiry, groupPromotions, isOnPromotion } from '../utils/pricing'
+import { t } from '../services/i18n'
 
 const sectionClass =
   'mx-auto max-w-[1200px] px-[clamp(1.25rem,4vw,4.5rem)] pt-[clamp(1.25rem,2.5vw,2rem)] last:pb-[clamp(1.5rem,3vw,2.5rem)]'
 const sectionHeadClass =
-  'mb-[clamp(0.8rem,1.6vw,1.15rem)] flex items-baseline justify-between gap-4 border-b border-line pb-[0.55rem]'
+  'mb-[clamp(0.8rem,1.6vw,1.15rem)] flex items-center justify-between gap-4 border-b border-line pb-[0.55rem]'
 const sectionTitleClass =
   'm-0 text-[clamp(1.05rem,2vw,1.4rem)] leading-[1.2] font-semibold tracking-[-0.01em] text-ink'
 const sectionLinkClass =
-  'text-[0.66rem] font-bold tracking-[0.08em] text-accent uppercase whitespace-nowrap no-underline hover:text-accent-strong focus-visible:text-accent-strong focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent'
+  'rounded-md inline-flex min-h-7 items-center bg-accent px-2 text-[0.66rem] font-bold tracking-[0.08em] text-white uppercase whitespace-nowrap no-underline transition-[background-color,transform] duration-150 hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-3 focus-visible:outline-accent active:scale-[0.96] motion-reduce:transition-none'
 const skeletonGridClass =
   'grid grid-cols-3 items-start gap-x-[0.55rem] gap-y-[clamp(0.9rem,2vw,1.5rem)] border-t border-line md:grid-cols-4'
 const statusClass = 'col-span-full py-8 text-[0.9rem] text-muted'
@@ -40,7 +41,7 @@ onMounted(async () => {
   if (productResult.status === 'fulfilled') {
     products.value = productResult.value
   } else {
-    error.value = productResult.reason?.message || 'Unable to load the collection.'
+    error.value = productResult.reason?.message || t('home.loadError')
   }
 
   loading.value = false
@@ -72,16 +73,16 @@ onMounted(async () => {
     <template v-else>
       <section v-if="mostPopular.length" :class="sectionClass">
         <div :class="sectionHeadClass">
-          <h2 :class="sectionTitleClass">Most Popular Products</h2>
-          <RouterLink :class="sectionLinkClass" to="/products">View All</RouterLink>
+          <h2 :class="sectionTitleClass">{{ t('home.popular') }}</h2>
+          <RouterLink :class="sectionLinkClass" to="/products">{{ t('home.viewAll') }}</RouterLink>
         </div>
         <ProductList :products="mostPopular" />
       </section>
 
       <section v-if="promoGroups.length" :class="sectionClass">
         <div :class="sectionHeadClass">
-          <h2 :class="sectionTitleClass">Promotions</h2>
-          <RouterLink :class="sectionLinkClass" to="/promotion">View All</RouterLink>
+          <h2 :class="sectionTitleClass">{{ t('home.promotions') }}</h2>
+          <RouterLink :class="sectionLinkClass" to="/promotion">{{ t('home.viewAll') }}</RouterLink>
         </div>
         <div
           v-for="group in promoGroups"
@@ -104,7 +105,7 @@ onMounted(async () => {
               {{ group.discount.description }}
             </p>
             <p v-if="group.discount.end_date" class="text-[1.2rem] font-normal text-muted">
-              Expire on {{ formatExpiry(group.discount.end_date) }}
+              {{ t('home.expireOn') }} {{ formatExpiry(group.discount.end_date) }}
             </p>
           </div>
           <ProductList :products="group.products" />
@@ -113,8 +114,8 @@ onMounted(async () => {
 
       <section v-if="newArrivals.length" :class="sectionClass">
         <div :class="sectionHeadClass">
-          <h2 :class="sectionTitleClass">New Arrivals</h2>
-          <RouterLink :class="sectionLinkClass" to="/products">View All</RouterLink>
+          <h2 :class="sectionTitleClass">{{ t('home.newArrivals') }}</h2>
+          <RouterLink :class="sectionLinkClass" to="/products">{{ t('home.viewAll') }}</RouterLink>
         </div>
         <ProductList :products="newArrivals" />
       </section>

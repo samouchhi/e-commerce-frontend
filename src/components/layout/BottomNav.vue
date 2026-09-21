@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { t } from '../../services/i18n'
 
 const route = useRoute()
 const props = defineProps({ isLoggedIn: Boolean })
@@ -11,11 +12,12 @@ const linkClass = `${linkBase} text-muted`
 const linkActiveClass = `${linkBase} text-accent before:absolute before:top-0 before:h-[0.2rem] before:w-[1.6rem] before:rounded-full before:bg-accent before:content-['']`
 
 const tabs = computed(() => [
-  { name: 'Home', to: '/', match: (path) => path === '/' },
-  { name: 'Product', to: '/products', match: (path) => path.startsWith('/products') },
-  { name: 'Promotion', to: '/promotion', match: (path) => path.startsWith('/promotion') },
+  { key: 'home', name: t('nav.home'), to: '/', match: (path) => path === '/' },
+  { key: 'products', name: t('nav.products'), to: '/products', match: (path) => path.startsWith('/products') },
+  { key: 'promotions', name: t('nav.promotions'), to: '/promotion', match: (path) => path.startsWith('/promotion') },
   {
-    name: 'Profile',
+    key: 'profile',
+    name: t('nav.profile'),
     to: props.isLoggedIn ? '/orders' : '/login',
     match: (path) => path.startsWith('/login') || path.startsWith('/orders'),
   },
@@ -31,7 +33,7 @@ const isActive = (tab) => tab.match(route.path)
   >
     <RouterLink
       v-for="tab in tabs"
-      :key="tab.name"
+      :key="tab.key"
       :to="tab.to"
       :class="isActive(tab) ? linkActiveClass : linkClass"
       :aria-current="isActive(tab) ? 'page' : undefined"
@@ -41,15 +43,15 @@ const isActive = (tab) => tab.match(route.path)
         viewBox="0 0 24 24"
         aria-hidden="true"
       >
-        <template v-if="tab.name === 'Home'">
+        <template v-if="tab.key === 'home'">
           <path d="M4 10.5 12 4l8 6.5" />
           <path d="M6 10v9h12v-9" />
         </template>
-        <template v-else-if="tab.name === 'Product'">
+        <template v-else-if="tab.key === 'products'">
           <path d="M4 12.5 12.5 4H20v7.5L11.5 20 4 12.5Z" />
           <circle cx="16.5" cy="7.5" r="1.4" />
         </template>
-        <template v-else-if="tab.name === 'Promotion'">
+        <template v-else-if="tab.key === 'promotions'">
           <path d="M6.5 17.5 17.5 6.5" />
           <circle cx="7.8" cy="7.8" r="2.6" />
           <circle cx="16.2" cy="16.2" r="2.6" />

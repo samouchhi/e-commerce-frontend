@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getCategories } from '../services/categoryService'
+import { t } from '../services/i18n'
 
 const catalogClass =
   'mx-auto max-w-[1200px] px-[clamp(1.25rem,4vw,4.5rem)] py-[clamp(1.25rem,2.5vw,2rem)]'
@@ -44,7 +45,7 @@ onMounted(async () => {
         </div>
       </div>
       <p v-else-if="error" :class="[statusClass, 'text-danger']">{{ error }}</p>
-      <p v-else-if="!categories.length" :class="statusClass">No categories yet.</p>
+      <p v-else-if="!categories.length" :class="statusClass">{{ t('categories.empty') }}</p>
       <div v-else :class="gridClass">
         <RouterLink
           v-for="category in categories"
@@ -58,7 +59,7 @@ onMounted(async () => {
           <span
             class="text-[0.6rem] font-bold tracking-[0.08em] uppercase opacity-[0.72] group-hover:opacity-[0.86]"
           >
-            {{ category.products?.length || 0 }} items
+            {{ category.products?.length || 0 }} {{ t('categories.items') }}
           </span>
         </RouterLink>
       </div>

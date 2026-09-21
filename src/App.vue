@@ -14,7 +14,9 @@ import { getProducts } from './services/productService'
 import { getCategories } from './services/categoryService'
 import { getSettings } from './services/settingsService'
 import { assetUrl } from './services/api'
+import { locale, setLocale, t } from './services/i18n'
 import BottomNav from './components/layout/BottomNav.vue'
+import CountryFlag from './components/icons/CountryFlag.vue'
 
 const navType =
   'text-[0.88rem]  leading-none font-semibold tracking-[0.05em] uppercase no-underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[5px] focus-visible:outline-accent'
@@ -29,6 +31,7 @@ const itemPendingRemoval = ref(null)
 const isBagOpen = ref(false)
 const isProfileOpen = ref(false)
 const isCategoryOpen = ref(false)
+const isLocaleOpen = ref(false)
 const isLoggedIn = ref(isAuthenticated())
 const user = ref(getUser())
 const refreshCart = () => (cart.value = getCart())
@@ -106,6 +109,11 @@ const openBag = async () => {
 }
 const closeProfile = () => (isProfileOpen.value = false)
 const closeCategory = () => (isCategoryOpen.value = false)
+const closeLocale = () => (isLocaleOpen.value = false)
+const selectLocale = (nextLocale) => {
+  setLocale(nextLocale)
+  closeLocale()
+}
 const handleAuthUpdate = () => {
   isLoggedIn.value = isAuthenticated()
   user.value = getUser()
@@ -116,11 +124,13 @@ const handleEscape = (event) => {
     closeBag()
     closeProfile()
     closeCategory()
+    closeLocale()
   }
 }
 const handleDocumentClick = (event) => {
   if (!event.target.closest('.profile-menu')) closeProfile()
   if (!event.target.closest('.category-menu')) closeCategory()
+  if (!event.target.closest('.locale-menu')) closeLocale()
 }
 const signOut = async () => {
   await logout()
@@ -167,9 +177,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <header
-    class="mx-auto flex max-w-[1200px] items-center justify-between gap-8 border-b border-line px-[clamp(1.25rem,4vw,4.5rem)] py-[0.85rem] max-md:gap-4 max-md:px-5 max-md:py-4"
-  >
+  <header class="sticky top-0 z-20 border-b border-line bg-paper/95 backdrop-blur-[12px]">
+    <div
+      class="mx-auto flex max-w-[1200px] items-center justify-between gap-8 px-[clamp(1.25rem,4vw,4.5rem)] py-[0.85rem] max-md:gap-4 max-md:px-5 max-md:py-4"
+    >
     <RouterLink
       to="/"
       :class="['flex items-center gap-[0.7rem] text-ink', navType]"
@@ -200,7 +211,7 @@ onUnmounted(() => {
           <path d="m3.5 10 8.5-7 8.5 7" />
           <path d="M5.5 9.5V21h13V9.5M9.5 21v-6h5v6" />
         </svg>
-        Home
+        {{ t('nav.home') }}
       </RouterLink>
       <RouterLink
         to="/products"
@@ -220,7 +231,7 @@ onUnmounted(() => {
           <rect x="4" y="14" width="6" height="6" rx="1" />
           <rect x="14" y="14" width="6" height="6" rx="1" />
         </svg>
-        Product
+        {{ t('nav.products') }}
       </RouterLink>
       <RouterLink
         to="/promotion"
@@ -238,7 +249,7 @@ onUnmounted(() => {
           <path d="M4 12V5h7l9 9-7 7-9-9Z" />
           <circle cx="8.5" cy="8.5" r="1" />
         </svg>
-        Promotion
+        {{ t('nav.promotions') }}
       </RouterLink>
       <div
         class="category-menu relative"
@@ -264,7 +275,7 @@ onUnmounted(() => {
           >
             <path d="M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z" />
           </svg>
-          Category
+          {{ t('nav.category') }}
           <svg
             :class="[
               'h-3 w-3 fill-none stroke-current stroke-[2] transition-transform duration-150 [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none',
@@ -296,7 +307,67 @@ onUnmounted(() => {
       </div>
     </nav>
     <div class="flex items-center gap-[0.8rem]">
-      <div class="profile-menu relative">
+      <div class="locale-menu relative order-0">
+        <button
+          :class="[
+            'flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1 border-0 px-2 text-ink transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none',
+            isLocaleOpen ? 'bg-accent-soft' : 'bg-transparent',
+          ]"
+          type="button"
+          :aria-label="`${t('language.english')} / ${t('language.khmer')}`"
+          :aria-expanded="isLocaleOpen"
+          aria-controls="locale-menu"
+          aria-haspopup="menu"
+          @click.stop="isLocaleOpen = !isLocaleOpen"
+        >
+          <CountryFlag :country="locale === 'km' ? 'kh' : 'us'" class="h-5" />
+          <svg
+            :class="[
+              'h-3 w-3 fill-none stroke-current stroke-[2] transition-transform duration-150 [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none',
+              isLocaleOpen ? 'rotate-180' : '',
+            ]"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        <div
+          v-if="isLocaleOpen"
+          id="locale-menu"
+          class="absolute top-[calc(100%+0.65rem)] right-0 z-30 w-56 overflow-hidden border border-line bg-paper p-1.5 shadow-[0_18px_40px_rgba(32,35,33,0.14)]"
+          role="menu"
+          aria-label="Language"
+        >
+          <button
+            :class="[
+              'flex min-h-14 w-full cursor-pointer items-center gap-4 border-0 px-4 text-left text-base text-ink transition-colors hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none',
+              locale === 'en' ? 'bg-accent-soft font-semibold' : 'bg-transparent',
+            ]"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="locale === 'en'"
+            @click="selectLocale('en')"
+          >
+            <CountryFlag country="us" class="h-5 shrink-0" />
+            {{ t('language.english') }}
+          </button>
+          <button
+            :class="[
+              'flex min-h-14 w-full cursor-pointer items-center gap-4 border-0 px-4 text-left text-base text-ink transition-colors hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none',
+              locale === 'km' ? 'bg-accent-soft font-semibold' : 'bg-transparent',
+            ]"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="locale === 'km'"
+            @click="selectLocale('km')"
+          >
+            <CountryFlag country="kh" class="h-5 shrink-0" />
+            {{ t('language.khmer') }}
+          </button>
+        </div>
+      </div>
+      <div class="profile-menu relative order-2">
         <button
           :class="[
             'flex min-h-11 min-w-11 cursor-pointer items-center justify-center border-0 p-2 text-ink transition-colors duration-150 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transition-none',
@@ -478,7 +549,7 @@ onUnmounted(() => {
       </div>
       <button
         :class="[
-          'relative inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-2 text-ink',
+          'relative order-1 inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-2 text-ink',
           navType,
         ]"
         type="button"
@@ -502,6 +573,7 @@ onUnmounted(() => {
           {{ cartCount }}
         </span>
       </button>
+    </div>
     </div>
   </header>
   <RouterView />
@@ -530,7 +602,7 @@ onUnmounted(() => {
         v-if="siteSettings.site_address || siteSettings.site_email || siteSettings.site_phone"
         class="grid min-w-0 content-start gap-4 xl:col-span-3"
       >
-        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">Contact</span>
+        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">{{ t('footer.contact') }}</span>
         <address
           class="m-0 grid max-w-[25rem] gap-3 text-[0.88rem] leading-[1.5] text-muted not-italic"
         >
@@ -588,7 +660,7 @@ onUnmounted(() => {
         class="grid min-w-0 content-start gap-4 xl:col-span-3"
         aria-label="Social links"
       >
-        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">Follow</span>
+        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">{{ t('footer.follow') }}</span>
         <div class="flex flex-wrap gap-2">
           <a
             v-if="siteSettings.site_facebook_url"
@@ -705,7 +777,7 @@ onUnmounted(() => {
         </div>
       </nav>
       <div class="grid min-w-0 content-start gap-4 xl:col-span-2">
-        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">We Accept</span>
+        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">{{ t('footer.payment') }}</span>
         <div class="flex h-16 w-32 items-center justify-center border border-line bg-paper p-2 shadow-[0_2px_8px_rgba(32,35,33,0.06)]">
           <img
             class="block h-full max-w-full object-contain"

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import ProductList from '../components/product/ProductList.vue'
 import { getCategories } from '../services/categoryService'
 import { getProducts } from '../services/productService'
+import { t } from '../services/i18n'
 
 const catalogClass =
   'mx-auto max-w-[1200px] px-[clamp(1.25rem,4vw,4.5rem)] py-[clamp(2rem,4vw,3.5rem)]'
@@ -26,19 +27,19 @@ const searchQuery = ref('')
 const sortBy = ref('best-seller')
 const isSortOpen = ref(false)
 const sortMenu = ref(null)
-const sortOptions = [
-  { value: 'name-asc', label: 'Name (A-Z)' },
-  { value: 'name-desc', label: 'Name (Z-A)' },
-  { value: 'best-seller', label: 'Best Seller' },
-  { value: 'new-arrival', label: 'New Arrival' },
-]
+const sortOptions = computed(() => [
+  { value: 'name-asc', label: t('products.nameAsc') },
+  { value: 'name-desc', label: t('products.nameDesc') },
+  { value: 'best-seller', label: t('products.bestSeller') },
+  { value: 'new-arrival', label: t('products.newArrival') },
+])
 
 const selectedCategory = computed(() =>
   route.query.category ? Number(route.query.category) : null,
 )
 
 const activeSortLabel = computed(
-  () => sortOptions.find((option) => option.value === sortBy.value)?.label || 'Best Seller',
+  () => sortOptions.value.find((option) => option.value === sortBy.value)?.label || t('products.bestSeller'),
 )
 
 const filteredProducts = computed(() => {
@@ -105,12 +106,12 @@ onUnmounted(() => document.removeEventListener('click', closeSortOnOutsideClick)
   <main :class="catalogClass">
     <div class="mb-[clamp(1.5rem,3vw,2.5rem)] justify-items-center">
       <h1 class="mt-6 text-[clamp(1.8rem,4vw,2.7rem)] font-medium tracking-[-0.04em] uppercase">
-        All Products
+        {{ t('products.title') }}
       </h1>
     </div>
     <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <label class="relative block w-full sm:max-w-[12.6rem]">
-        <span class="sr-only">Search products</span>
+        <span class="sr-only">{{ t('products.search') }}</span>
         <svg
           class="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-muted"
           viewBox="0 0 24 24"
@@ -126,7 +127,7 @@ onUnmounted(() => document.removeEventListener('click', closeSortOnOutsideClick)
           v-model="searchQuery"
           class="h-10 w-full border border-line bg-paper pr-3 pl-10 text-sm text-ink outline-none transition-colors placeholder:text-muted focus:border-accent"
           type="search"
-          placeholder="Search"
+          :placeholder="t('products.search')"
         />
       </label>
 
@@ -156,7 +157,7 @@ onUnmounted(() => document.removeEventListener('click', closeSortOnOutsideClick)
           id="product-sort-options"
           class="absolute top-[calc(100%+0.5rem)] right-0 z-20 w-full overflow-hidden border border-line bg-paper py-1 shadow-[0_10px_24px_rgba(32,35,33,0.14)]"
           role="listbox"
-          aria-label="Sort products"
+          :aria-label="t('products.sort')"
         >
           <button
             v-for="option in sortOptions"
@@ -193,7 +194,7 @@ onUnmounted(() => document.removeEventListener('click', closeSortOnOutsideClick)
         :aria-pressed="selectedCategory === null"
         @click="selectCategory(null)"
       >
-        All
+        {{ t('products.all') }}
       </button>
       <button
         v-for="category in categories"
@@ -219,7 +220,7 @@ onUnmounted(() => document.removeEventListener('click', closeSortOnOutsideClick)
       </div>
       <p v-else-if="error" :class="[statusClass, 'text-danger']">{{ error }}</p>
       <p v-else-if="!filteredProducts.length" :class="statusClass">
-        No products match your selection.
+        {{ t('products.noMatch') }}
       </p>
       <ProductList v-else :products="filteredProducts" />
     </section>
