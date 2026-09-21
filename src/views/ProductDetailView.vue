@@ -183,7 +183,13 @@ watch(() => route.params.slug, loadProduct)
               :aria-label="t('productDetail.previousImage')"
               @click="previousImage"
             >
-              ←
+              <svg
+                class="size-5 fill-none stroke-current stroke-2"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M19 12H5m6 6-6-6 6-6" />
+              </svg>
             </button>
             <button
               class="rounded-full absolute top-1/2 right-4 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center border border-ink bg-paper text-[1.25rem] text-ink"
@@ -191,7 +197,13 @@ watch(() => route.params.slug, loadProduct)
               :aria-label="t('productDetail.nextImage')"
               @click="nextImage"
             >
-              →
+              <svg
+                class="size-5 fill-none stroke-current stroke-2"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14m-6-6 6 6-6 6" />
+              </svg>
             </button>
           </template>
         </div>
