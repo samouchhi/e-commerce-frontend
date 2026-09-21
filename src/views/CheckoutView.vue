@@ -421,7 +421,7 @@ onUnmounted(() => {
   <main :class="checkoutPageClass">
     <RouterLink
       to="/"
-      class="inline-flex size-10 items-center justify-center rounded-full bg-accent text-white hover:bg-accent-hover"
+      class="inline-flex size-10 items-center justify-center rounded-full text-ink border-1"
       aria-label="Go back"
     >
       <svg class="size-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true">

@@ -10,7 +10,7 @@ import { formatPrice } from '../utils/pricing'
 import { productSlug } from '../utils/slug'
 
 const shimmerClass = 'skeleton animate-shimmer motion-reduce:animate-none'
-const variantBase = 'flex flex-col gap-[0.35rem] border px-[0.9rem] py-[0.8rem] text-left'
+const variantBase = 'flex flex-col gap-[0.35rem] border px-[0.9rem] py-[0.2rem] text-left rounded'
 const variantClass = `${variantBase} cursor-pointer border-line bg-transparent text-ink hover:border-accent`
 const variantSelectedClass = `${variantBase} cursor-pointer border-accent bg-transparent text-ink hover:border-accent`
 const variantOutClass = `${variantBase} cursor-not-allowed border-line bg-line text-muted italic opacity-75 hover:border-line`
@@ -23,6 +23,7 @@ const error = ref('')
 const selectedImage = ref(0)
 const selectedVariantId = ref(null)
 const addedVariantId = ref(null)
+const quantity = ref(1)
 
 const images = computed(
   () => product.value?.images?.slice().sort((a, b) => a.sort_order - b.sort_order) || [],
@@ -65,6 +66,16 @@ const variantClassFor = (variant) =>
 const selectVariant = (variant) => {
   selectedVariantId.value = variant.id
   addedVariantId.value = null
+  quantity.value = 1
+}
+
+const decreaseQuantity = () => {
+  quantity.value = Math.max(1, quantity.value - 1)
+}
+
+const increaseQuantity = () => {
+  const stock = Number(selectedVariant.value?.stock_qty ?? 0)
+  quantity.value = Math.min(stock, quantity.value + 1)
 }
 
 const selectedPricing = computed(() => {
@@ -89,6 +100,7 @@ const addToCart = () => {
     variantName: variant.name,
     imageUrl: imageUrl(images.value[0]),
     price: selectedPricing.value.currentPrice,
+    quantity: quantity.value,
   })
   addedVariantId.value = variant.id
 }
@@ -100,6 +112,7 @@ const loadProduct = async () => {
   selectedImage.value = 0
   selectedVariantId.value = null
   addedVariantId.value = null
+  quantity.value = 1
   try {
     if (!allProducts.value.length) allProducts.value = await getProducts()
     product.value = allProducts.value.find((item) => productSlug(item) === route.params.slug)
@@ -119,7 +132,7 @@ watch(() => route.params.slug, loadProduct)
   <main class="mx-auto max-w-[1100px] px-[clamp(1.25rem,4vw,4.5rem)] pt-4 pb-10">
     <RouterLink
       to="/"
-      class="inline-flex size-10 items-center justify-center rounded-full bg-accent text-white hover:bg-accent-hover mb-5"
+      class="inline-flex size-10 items-center justify-center rounded-full text-ink bg-paper shadow-[0_18px_40px_rgba(32,35,33,0.14)] mb-5"
       aria-label="Go back"
     >
       <svg class="size-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true">
@@ -206,7 +219,7 @@ watch(() => route.params.slug, loadProduct)
         </div>
       </div>
       <div>
-        <p class="eyebrow">{{ product.category?.name || t('productDetail.collection') }}</p>
+        <!-- <p class="eyebrow justify-center">{{ product.category?.name || t('productDetail.collection') }}</p> -->
         <h2 class="my-[0.83em] text-[1.5em] font-bold text-ink">{{ product.name }}</h2>
         <h2 class="my-[0.83em] text-2xl font-bold text-sale">
           {{ formatPrice(selectedPricing.currentPrice) }}
@@ -240,13 +253,54 @@ watch(() => route.params.slug, loadProduct)
             <span>{{ variant.name }}</span>
           </button>
         </div>
-        <div v-if="selectedVariant" class="mt-4 flex items-center justify-between gap-4">
+        <div v-if="selectedVariant" class="mt-4 flex flex-wrap items-center gap-3">
+          <div
+            class="inline-flex min-h-10 items-center overflow-hidden rounded border border-line bg-paper"
+            role="group"
+            :aria-label="t('cart.quantity')"
+          >
+            <button
+              class="flex size-10 cursor-pointer items-center justify-center text-lg text-ink hover:bg-accent-soft disabled:cursor-not-allowed disabled:text-muted"
+              type="button"
+              :aria-label="t('cart.decreaseQuantity')"
+              :disabled="variantUnavailable(selectedVariant) || quantity <= 1"
+              @click="decreaseQuantity"
+            >
+              −
+            </button>
+            <span
+              class="flex min-w-10 justify-center px-2 text-sm font-semibold text-ink"
+              aria-live="polite"
+            >
+              {{ quantity }}
+            </span>
+            <button
+              class="flex size-10 cursor-pointer items-center justify-center text-lg text-ink hover:bg-accent-soft disabled:cursor-not-allowed disabled:text-muted"
+              type="button"
+              :aria-label="t('cart.increaseQuantity')"
+              :disabled="
+                variantUnavailable(selectedVariant) || quantity >= Number(selectedVariant.stock_qty)
+              "
+              @click="increaseQuantity"
+            >
+              +
+            </button>
+          </div>
           <button
-            class="rounded min-h-8 cursor-pointer border-0 bg-accent px-[0.8rem] py-[0.6rem] text-[0.82rem] font-bold text-white uppercase hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
+            class="ml-auto inline-flex min-h-10 cursor-pointer items-center gap-2 rounded border-0 bg-accent px-[0.8rem] py-[0.6rem] text-[0.82rem] font-bold text-white uppercase hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
             type="button"
             :disabled="variantUnavailable(selectedVariant)"
             @click="addToCart"
           >
+            <svg
+              class="size-4 fill-none stroke-current stroke-[1.8]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M3 4h2l2 12h10l2-8H6" />
+              <circle cx="9" cy="19" r="1" />
+              <circle cx="17" cy="19" r="1" />
+            </svg>
             {{
               addedVariantId === selectedVariant.id
                 ? t('productDetail.addedToCart')
@@ -254,20 +308,8 @@ watch(() => route.params.slug, loadProduct)
             }}
           </button>
         </div>
-        <details
-          v-if="product.description"
-          open
-          class="mt-4 max-w-[420px] border-t border-line pt-[0.7rem] text-muted"
-        >
-          <summary class="cursor-pointer text-[0.68rem] font-bold text-ink uppercase">
-            {{ t('productDetail.description') }}
-          </summary>
-          <p class="mt-4 text-base text-muted uppercase">
-            {{ t('productDetail.productCode') }}: {{ product.product_code }}
-          </p>
 
-          <p class="mt-4">{{ product.description }}</p>
-        </details>
+        <div class="mt-4" v-html="product.description"></div>
       </div>
     </section>
     <section

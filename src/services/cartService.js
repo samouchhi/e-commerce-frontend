@@ -65,8 +65,10 @@ export const clearCart = () => saveCart([])
 export const addToCart = (item) => {
   const cart = readCart()
   const existing = cart.find((cartItem) => cartItem.variantId === item.variantId)
-  if (existing) existing.quantity += 1
-  else cart.push({ ...item, quantity: 1 })
+  const quantity =
+    Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : 1
+  if (existing) existing.quantity += quantity
+  else cart.push({ ...item, quantity })
   saveCart(cart)
   window.dispatchEvent(new Event('cart-item-added'))
 }

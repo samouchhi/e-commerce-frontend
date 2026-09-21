@@ -33,7 +33,10 @@ const resendTime = computed(() => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 })
 const withValues = (key, values) =>
-  Object.entries(values).reduce((message, [name, value]) => message.replace(`{${name}}`, value), t(key))
+  Object.entries(values).reduce(
+    (message, [name, value]) => message.replace(`{${name}}`, value),
+    t(key),
+  )
 
 const clearResendTimer = () => window.clearInterval(resendTimer)
 const startResendTimer = () => {
@@ -177,7 +180,13 @@ onUnmounted(clearResendTimer)
     >
       <!-- <p v-if="siteName" class="eyebrow">{{ siteName }} account</p> -->
       <h1 id="auth-title" class="mb-3 text-[clamp(1.6rem,3vw,2.25rem)]">
-        {{ isVerifyingOtp ? t('login.verifyTitle') : isRegistering ? t('login.createTitle') : t('login.title') }}
+        {{
+          isVerifyingOtp
+            ? t('login.verifyTitle')
+            : isRegistering
+              ? t('login.createTitle')
+              : t('login.title')
+        }}
       </h1>
       <!-- <p class="mb-8 max-w-md leading-[1.6] text-muted">
         {{ isRegistering ? 'Save your details for a smoother checkout.' : 'Sign in to continue.' }}
@@ -295,9 +304,9 @@ onUnmounted(clearResendTimer)
             aria-live="polite"
           >
             <span>{{ t('login.spamHint') }}</span>
-            <span v-if="resendSeconds" class="shrink-0 tabular-nums"
-              >{{ withValues('login.resendIn', { time: resendTime }) }}</span
-            >
+            <span v-if="resendSeconds" class="shrink-0 tabular-nums">{{
+              withValues('login.resendIn', { time: resendTime })
+            }}</span>
             <button
               v-else
               class="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-bold text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-wait disabled:text-muted"
