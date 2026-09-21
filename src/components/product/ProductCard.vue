@@ -1,8 +1,11 @@
 <script setup>
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { assetUrl } from '../../services/api'
+import { formatPrice, pricingFor } from '../../utils/pricing'
+import { productSlug } from '../../utils/slug'
 
-defineProps({
+const props = defineProps({
   product: {
     type: Object,
     required: true,
@@ -14,37 +17,55 @@ const imageUrl = (product) => {
   return image?.image_path ? assetUrl(`/storage/${image.image_path}`) : ''
 }
 
-const activeVariant = (product) =>
-  product.variants?.find((variant) => variant.is_active) || product.variants?.[0]
-
-const formatPrice = (price) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(price || 0))
+const pricing = computed(() => pricingFor(props.product))
 </script>
 
 <template>
-  <RouterLink :to="`/products/${product.id}`" class="product-card">
-    <div class="product-card__image-wrap">
+  <RouterLink
+    :to="`/products/${productSlug(product)}`"
+    class="group block min-w-0 text-inherit no-underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent"
+  >
+    <div
+      class="relative aspect-square overflow-hidden bg-white after:pointer-events-none after:absolute after:inset-[0.65rem] after:translate-x-[0.45rem] after:translate-y-[0.45rem] after:border after:border-white/50 after:transition-transform after:duration-[350ms] after:content-[''] group-hover:after:translate-x-0 group-hover:after:translate-y-0 max-md:after:hidden"
+    >
+      <span
+        v-if="pricing.hasDiscount"
+        class="absolute top-[0.35rem] left-[0.35rem] z-[2] bg-sale px-[0.32rem] py-[0.2rem] text-[clamp(0.44rem,1.5vw,0.6rem)] font-bold tracking-[0.06em] text-white uppercase"
+      >
+        -{{ pricing.percentOff }}%
+      </span>
       <img
         v-if="imageUrl(product)"
         :src="imageUrl(product)"
         :alt="product.name"
-        class="product-card__image"
+        class="m-0 block h-full w-full object-cover transition-transform duration-500 motion-reduce:transition-none"
         loading="lazy"
       />
-      <div v-else class="product-card__placeholder" aria-hidden="true">No image</div>
-    </div>
-    <div class="product-card__content">
-      <div>
-        <h3>{{ product.name }}</h3>
+      <div
+        v-else
+        class="flex h-full items-center justify-center text-[0.7rem] text-muted uppercase"
+        aria-hidden="true"
+      >
+        No image
       </div>
-      <strong>{{ formatPrice(activeVariant(product)?.price) }}</strong>
-      <!-- <p class="product-card__stock">
-        {{
-          activeVariant(product)?.stock_qty > 0
-            ? `${activeVariant(product).stock_qty} in stock`
-            : 'Currently unavailable'
-        }}
-      </p> -->
+    </div>
+    <div class="flex flex-col gap-[0.2rem] px-[0.4rem] pt-[0.45rem]">
+      <h3
+        class="line-clamp-2 text-[clamp(0.62rem,2.1vw,0.9rem)] leading-[1.2] font-semibold text-ink"
+      >
+        {{ product.name }}
+      </h3>
+      <div class="order-1 flex flex-wrap items-baseline gap-[0.3rem]">
+        <span class="text-[clamp(0.6rem,1.9vw,1rem)] font-bold text-sale">{{
+          formatPrice(pricing.currentPrice)
+        }}</span>
+        <s
+          v-if="pricing.hasDiscount"
+          class="text-[clamp(0.5rem,1.55vw,1rem)] font-normal text-muted line-through"
+        >
+          {{ formatPrice(pricing.originalPrice) }}
+        </s>
+      </div>
     </div>
   </RouterLink>
 </template>

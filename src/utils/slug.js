@@ -1,0 +1,11 @@
+export const slugify = (value) =>
+  String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+export const productSlug = (product) =>
+  slugify(`${product?.name ?? ''} ${product?.product_code ?? ''}`)

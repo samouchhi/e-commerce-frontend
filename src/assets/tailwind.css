@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap');
+@import 'tailwindcss';
+
+/* Design tokens ported 1:1 from the previous src/assets/base.css + main.css */
+@theme {
+  --font-sans: 'Titillium Web', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-ink: #111111;
+  --color-muted: #6b6b6b;
+  --color-line: #e3e3e3;
+  --color-paper: #ffffff;
+  --color-accent: #111111;
+  --color-accent-strong: #000000;
+  --color-accent-hover: #333333;
+  --color-accent-deep: #111111;
+  --color-accent-soft: #f4f4f4;
+  --color-sale: #d92d20;
+  --color-danger: #ae3425;
+  --color-danger-strong: #913c29;
+  --color-danger-soft: #fff3f0;
+  --color-danger-line: #e7b8ad;
+  --color-success: #205d34;
+  --color-success-soft: #f1f8f3;
+  --color-success-line: #c2dbc9;
+  --color-warning: #725b00;
+  --color-warning-soft: #fffbef;
+  --color-warning-line: #dfd3a4;
+  --color-aba: #21b9cd;
+
+  /* Legacy 480px breakpoint */
+  --breakpoint-xs: 30rem;
+
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-qr: qr-spin 0.8s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes qr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+  }
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  button,
+  a {
+    font: inherit;
+  }
+  /* Global page heading (was the bare `h1` rule in main.css) */
+  h1 {
+    @apply mt-[0.6rem] mb-3 max-w-[680px] text-[clamp(1.9rem,3.6vw,2.75rem)] leading-[1.15] font-semibold tracking-[-0.02em] text-ink max-md:text-[clamp(1.5rem,7vw,2rem)];
+  }
+}
+
+/* Reused primitives that were shared classes in main.css */
+@utility eyebrow {
+  @apply text-[0.72rem] leading-[1.2] font-bold tracking-[0.1em] text-accent uppercase;
+}
+
+@utility back-link {
+  @apply mb-5 inline-block text-[0.72rem] font-bold text-ink uppercase no-underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent;
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Shimmer/gradient fill used by the product + category skeletons */
+@utility skeleton {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-accent-soft) 25%,
+    #ffffff 45%,
+    var(--color-accent-soft) 65%
+  );
+  background-size: 250% 100%;
+}
+
+/* Footer social links render their platform name from aria-label */
+@utility social-label {
+  &::after {
+    color: currentColor;
+    content: '|  ' attr(aria-label);
+    font:
+      700 0.65rem 'Titillium Web',
+      system-ui,
+      sans-serif;
+    text-transform: uppercase;
+  }
+}
+
+/* Native select chevron drawn with two gradients */
+@utility select-chevron {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-accent) 50%),
+    linear-gradient(135deg, var(--color-accent) 50%, transparent 50%);
+  background-position:
+    calc(100% - 0.9rem) 50%,
+    calc(100% - 0.62rem) 50%;
+  background-repeat: no-repeat;
+  background-size:
+    0.28rem 0.28rem,
+    0.28rem 0.28rem;
+}
+
+/*
+ * Vue <Transition> hooks. These classes are injected on the transition root
+ * (and target descendants), so they can't be expressed as inline utilities.
+ */
+@layer components {
+  .bag-fade-enter-active .bag-drawer,
+  .bag-fade-leave-active .bag-drawer {
+    transition: transform 300ms ease;
+  }
+  .bag-fade-enter-from .bag-drawer,
+  .bag-fade-leave-to .bag-drawer {
+    transform: translateX(100%);
+  }
+  .bag-fade-enter-active .bag-overlay,
+  .bag-fade-leave-active .bag-overlay {
+    transition: background 300ms ease;
+  }
+  .bag-fade-enter-from .bag-overlay,
+  .bag-fade-leave-to .bag-overlay {
+    background: transparent;
+  }
+
+  .gallery-image-enter-active,
+  .gallery-image-leave-active {
+    transition: opacity 800ms ease;
+  }
+  .gallery-image-enter-from,
+  .gallery-image-leave-to {
+    opacity: 0;
+  }
+
+  .payment-step-enter-active,
+  .payment-step-leave-active {
+    transition:
+      opacity 220ms ease,
+      transform 220ms ease;
+  }
+  .payment-step-enter-from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  .payment-step-leave-to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bag-fade-enter-active .bag-drawer,
+    .bag-fade-leave-active .bag-drawer,
+    .gallery-image-enter-active,
+    .gallery-image-leave-active,
+    .payment-step-enter-active,
+    .payment-step-leave-active {
+      transition: none;
+    }
+  }
+}

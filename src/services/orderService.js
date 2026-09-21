@@ -1,5 +1,10 @@
 import api from './api'
 
+export const getOrders = async () => {
+  const payload = await api.request('/api/orders')
+  return Array.isArray(payload) ? payload : payload.data || []
+}
+
 export const createOrder = (payload) =>
   api.request('/api/orders', {
     method: 'POST',

@@ -81,6 +81,7 @@ async function checkoutHarness({
       clearCart: () => {
         clearCount += 1
       },
+      resolveCart: async () => ({ can_checkout: true }),
       mergeCartItem() {},
       updateCartItem() {},
       updateCartQuantity() {},

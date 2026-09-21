@@ -1,0 +1,21 @@
+# Taste
+- Prioritizes mobile-first, mobile-responsive UI when updating pages, and expects mobile-specific treatment (e.g. bottom navigation, safe-area insets) rather than a desktop design shrunk down. Confidence: 0.6
+- Prefers a black-and-white (monochrome) color scheme for the storefront and explicitly drops non-neutral brand themes (e.g. dropped the green theme). Confidence: 0.7
+- Prefers dense, compact product grids — small product cards, and no horizontal gap between cards in the same row (flush edge-to-edge tiles, with images filling each tile rather than letterboxed/padded). Confidence: 0.7
+- Wants the product grid column count to be responsive: 3 products per row on mobile, and 4 products per row from the md breakpoint (768px) up. The "4 per row" rule is desktop/tablet-only, not applied to small screens. Confidence: 0.8
+- Wants the overall layout kept compact and dense, avoiding large empty whitespace: tight section spacing, small page headings, and short heroes instead of big padding blocks. Confidence: 0.8
+- Wants the home page composed of curated sections (banner, Most Popular Products, Promotions, New Arrivals), each with a "View All" link. Confidence: 0.55
+- Expects specific, structured content formats rather than loose copy — e.g. promotions shown as discount name, an "Expire on YYYY-MM-DD" date, and the discount description. Confidence: 0.55
+- Anchors design direction to a concrete real-world reference site (e.g. nichhyskin.com) for layout. Confidence: 0.5
+- Prefers promotion/discount blocks rendered as a centered section header — discount name centered with a horizontal rule on each side (line-title-line), description centered below in muted gray, then "Expire on YYYY-MM-DD" centered beneath. Confidence: 0.65
+- Expects the same visual treatment reused consistently across every surface that shows the same content (e.g. the same promo card on the Promotions page and the home Promotions section). Confidence: 0.6
+- Limits the promotion/discount card (discount name, description, "Expire on" date) to the home Promotions section and the Promotions page only — it must not appear on the product detail page. Confidence: 0.75
+- Prefers a single app-wide font family (Titillium Web, matching the nichhyskin.com reference) used for both body text and headings, with system-ui/Roboto as fallback. Confidence: 0.75
+- Prefers lean, focused top-level navigation over the full nav set — drops non-essential sections (e.g. blog) and keeps only the core shopping destinations. Confidence: 0.5
+- When updating a page, expects it to be wired to the real backend API endpoints (data-driven from live API responses) rather than mocked content. Confidence: 0.5
+- Wants list sections to show the complete data set rather than a truncated subset — e.g. the home page must render every active discount group with all of its products, not a sampled/shortened list. Confidence: 0.6
+- Keeps the overall palette neutral but reserves a red accent (#d92d20) specifically for the price tag and the discount/sale badge, with struck-through original prices left in muted gray rather than red. Confidence: 0.55
+- Prefers styling done with Tailwind CSS utility classes rather than hand-written vanilla CSS files. Confidence: 0.7
+- Prefers human-readable, name-based URLs over numeric IDs (e.g. `/products/classic-cotton-tee` instead of `/products/2`), i.e. slugify entity names for routes. Confidence: 0.65
+- Wants entity slugs to stay unique by folding the product code into the slug (name + `product_code`, e.g. `routine-knit-t-shirt-3552369`) rather than tolerating duplicate-name collisions or falling back to numeric IDs. Confidence: 0.5
+- When migrating/refactoring styles, expects the existing CSS to be read first and its design language carried over 1:1 (tokens, fonts, spacing) instead of being reinvented — "reference my old css". Confidence: 0.6

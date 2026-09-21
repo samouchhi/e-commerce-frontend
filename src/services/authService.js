@@ -35,14 +35,26 @@ export const login = async (credentials) =>
     { email: credentials.email },
   )
 
-export const register = async (credentials) =>
+export const register = (credentials) =>
+  api.request('/api/register', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  })
+
+export const verifyOtp = async (credentials) =>
   saveSession(
-    await api.request('/api/register', {
+    await api.request('/api/verify-otp', {
       method: 'POST',
       body: JSON.stringify(credentials),
     }),
     { email: credentials.email },
   )
+
+export const resendOtp = (email) =>
+  api.request('/api/resend-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
 
 export const logout = async () => {
   try {
