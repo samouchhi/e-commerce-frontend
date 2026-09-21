@@ -3,8 +3,9 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login, register, resendOtp, verifyOtp } from '../services/authService'
 import { getSettings } from '../services/settingsService'
+import { t } from '../services/i18n'
 
-const labelClass = 'grid gap-[0.55rem] text-[0.68rem] leading-[1.2] font-bold text-ink uppercase'
+const labelClass = 'grid gap-[0.55rem] text-[0.78rem] leading-[1.2] font-bold text-ink uppercase'
 const inputClass =
   'w-full min-h-[3.2rem] rounded-[0.35rem] border border-line bg-white pr-[0.9rem] pl-[2.85rem] py-3 text-base text-ink transition-[border-color,box-shadow] duration-[160ms] focus:border-accent focus:shadow-[0_0_0_3px_rgba(17,17,17,0.16)] focus:outline-none'
 const OTP_LENGTH = 6
@@ -31,6 +32,8 @@ const resendTime = computed(() => {
   const seconds = resendSeconds.value % 60
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 })
+const withValues = (key, values) =>
+  Object.entries(values).reduce((message, [name, value]) => message.replace(`{${name}}`, value), t(key))
 
 const clearResendTimer = () => window.clearInterval(resendTimer)
 const startResendTimer = () => {
@@ -75,7 +78,7 @@ const resendCode = async () => {
     otpDigits.value = Array(OTP_LENGTH).fill('')
     startResendTimer()
     focusOtp(0)
-    statusMessage.value = 'A new verification code has been sent.'
+    statusMessage.value = t('login.newCodeSent')
   } catch (error) {
     errorMessage.value = apiError(error)
   } finally {
@@ -83,11 +86,7 @@ const resendCode = async () => {
   }
 }
 
-const apiError = (error) => {
-  const messages = error.details?.errors
-  if (messages) return Object.values(messages).flat().join(' ')
-  return error.details?.message || 'Something went wrong. Please try again.'
-}
+const apiError = () => t('login.genericError')
 
 const startVerification = (email, message = '') => {
   form.value.email = email
@@ -114,7 +113,7 @@ const submit = async () => {
     return
   }
   if (isRegistering.value && form.value.password !== form.value.password_confirmation) {
-    errorMessage.value = 'Passwords do not match.'
+    errorMessage.value = t('login.passwordsMismatch')
     return
   }
   isSubmitting.value = true
@@ -178,7 +177,7 @@ onUnmounted(clearResendTimer)
     >
       <!-- <p v-if="siteName" class="eyebrow">{{ siteName }} account</p> -->
       <h1 id="auth-title" class="mb-3 text-[clamp(1.6rem,3vw,2.25rem)]">
-        {{ isVerifyingOtp ? 'Check your email.' : isRegistering ? 'Create your account.' : 'Welcome back.' }}
+        {{ isVerifyingOtp ? t('login.verifyTitle') : isRegistering ? t('login.createTitle') : t('login.title') }}
       </h1>
       <!-- <p class="mb-8 max-w-md leading-[1.6] text-muted">
         {{ isRegistering ? 'Save your details for a smoother checkout.' : 'Sign in to continue.' }}
@@ -186,7 +185,7 @@ onUnmounted(clearResendTimer)
 
       <form class="grid gap-5" @submit.prevent="submit">
         <label v-if="!isVerifyingOtp" :class="labelClass">
-          Email
+          {{ t('login.email') }}
           <div class="group relative">
             <svg
               class="pointer-events-none absolute top-1/2 left-4 h-[1.1rem] w-[1.1rem] -translate-y-1/2 text-muted transition-colors duration-[160ms] group-focus-within:text-ink"
@@ -203,7 +202,7 @@ onUnmounted(clearResendTimer)
             </svg>
             <input
               v-model.trim="form.email"
-              placeholder="Enter your email"
+              :placeholder="t('login.emailPlaceholder')"
               required
               type="email"
               autocomplete="email"
@@ -212,7 +211,7 @@ onUnmounted(clearResendTimer)
           </div>
         </label>
         <label v-if="!isVerifyingOtp" :class="labelClass">
-          Password
+          {{ t('login.password') }}
           <div class="group relative">
             <svg
               class="pointer-events-none absolute top-1/2 left-4 h-[1.1rem] w-[1.1rem] -translate-y-1/2 text-muted transition-colors duration-[160ms] group-focus-within:text-ink"
@@ -229,7 +228,7 @@ onUnmounted(clearResendTimer)
             </svg>
             <input
               v-model="form.password"
-              placeholder="Enter your password"
+              :placeholder="t('login.passwordPlaceholder')"
               required
               type="password"
               :autocomplete="isRegistering ? 'new-password' : 'current-password'"
@@ -239,7 +238,7 @@ onUnmounted(clearResendTimer)
           </div>
         </label>
         <label v-if="isRegistering && !isVerifyingOtp" :class="labelClass">
-          Confirm password
+          {{ t('login.confirmPassword') }}
           <div class="group relative">
             <svg
               class="pointer-events-none absolute top-1/2 left-4 h-[1.1rem] w-[1.1rem] -translate-y-1/2 text-muted transition-colors duration-[160ms] group-focus-within:text-ink"
@@ -255,7 +254,7 @@ onUnmounted(clearResendTimer)
               <path d="M8 10V7a4 4 0 0 1 8 0v3" />
             </svg>
             <input
-              placeholder="Confirm your password"
+              :placeholder="t('login.confirmPasswordPlaceholder')"
               v-model="form.password_confirmation"
               required
               type="password"
@@ -267,17 +266,17 @@ onUnmounted(clearResendTimer)
         </label>
         <template v-if="isVerifyingOtp">
           <p class="-mb-1 max-w-sm leading-[1.6] text-muted">
-            Enter the six-digit verification code sent to <span class="font-semibold text-ink">{{ form.email }}</span>.
+            {{ withValues('login.verificationSent', { email: form.email }) }}
           </p>
           <fieldset class="m-0 border-0 p-0" aria-describedby="otp-resend">
-            <legend class="sr-only">Six-digit verification code</legend>
+            <legend class="sr-only">{{ t('login.verificationLegend') }}</legend>
             <div class="grid grid-cols-6 gap-2 sm:gap-3">
               <input
                 v-for="(_, index) in otpDigits"
                 :key="index"
                 :ref="(element) => (otpInputs[index] = element)"
                 :value="otpDigits[index]"
-                :aria-label="`Digit ${index + 1} of ${OTP_LENGTH}`"
+                :aria-label="withValues('login.otpDigit', { index: index + 1, length: OTP_LENGTH })"
                 :autocomplete="index === 0 ? 'one-time-code' : 'off'"
                 class="h-12 min-w-0 rounded-[0.35rem] border border-line bg-white text-center text-lg font-bold tabular-nums text-ink transition-[border-color,box-shadow] duration-[160ms] focus:border-ink focus:shadow-[0_0_0_3px_rgba(17,17,17,0.14)] focus:outline-none"
                 inputmode="numeric"
@@ -290,9 +289,15 @@ onUnmounted(clearResendTimer)
               />
             </div>
           </fieldset>
-          <p id="otp-resend" class="-mt-2 flex items-center justify-between gap-3 text-xs text-muted" aria-live="polite">
-            <span>Check your spam folder if it has not arrived.</span>
-            <span v-if="resendSeconds" class="shrink-0 tabular-nums">Resend OTP in {{ resendTime }}</span>
+          <p
+            id="otp-resend"
+            class="-mt-2 flex items-center justify-between gap-3 text-xs text-muted"
+            aria-live="polite"
+          >
+            <span>{{ t('login.spamHint') }}</span>
+            <span v-if="resendSeconds" class="shrink-0 tabular-nums"
+              >{{ withValues('login.resendIn', { time: resendTime }) }}</span
+            >
             <button
               v-else
               class="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-bold text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-wait disabled:text-muted"
@@ -300,11 +305,15 @@ onUnmounted(clearResendTimer)
               :disabled="isResending"
               @click="resendCode"
             >
-              {{ isResending ? 'Sending...' : 'Resend OTP' }}
+              {{ isResending ? t('login.sending') : t('login.resendOtp') }}
             </button>
           </p>
         </template>
-        <p v-if="statusMessage" class="m-0 bg-success-soft px-4 py-[0.8rem] leading-[1.5] text-success" role="status">
+        <p
+          v-if="statusMessage"
+          class="m-0 bg-success-soft px-4 py-[0.8rem] leading-[1.5] text-success"
+          role="status"
+        >
           {{ statusMessage }}
         </p>
         <p
@@ -315,11 +324,19 @@ onUnmounted(clearResendTimer)
           {{ errorMessage }}
         </p>
         <button
-          class="mt-2 w-full cursor-pointer border-0 bg-accent p-4 text-center text-[0.7rem] font-bold text-white uppercase no-underline hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-wait disabled:bg-muted disabled:opacity-65"
+          class="rounded mt-2 w-full cursor-pointer border-0 bg-accent p-4 text-center text-[0.8rem] font-bold text-white uppercase no-underline hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-wait disabled:bg-muted disabled:opacity-65"
           type="submit"
           :disabled="isSubmitting || isResending || (isVerifyingOtp && !isOtpComplete)"
         >
-          {{ isSubmitting ? 'Please wait...' : isVerifyingOtp ? 'Verify code' : isRegistering ? 'Create account' : 'Log in' }}
+          {{
+            isSubmitting
+              ? t('login.pleaseWait')
+              : isVerifyingOtp
+                ? t('login.verifyCode')
+                : isRegistering
+                  ? t('login.createAccount')
+                  : t('login.logIn')
+          }}
         </button>
       </form>
 
@@ -329,15 +346,15 @@ onUnmounted(clearResendTimer)
         type="button"
         @click="changeEmail"
       >
-        Use a different email
+        {{ t('login.useDifferentEmail') }}
       </button>
       <button
         v-else
-        class="mt-6 cursor-pointer border-0 bg-transparent p-0 text-[0.68rem] font-bold text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+        class="mt-6 cursor-pointer border-0 bg-transparent p-0 text-[0.88rem] font-bold text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent"
         type="button"
         @click="toggleMode"
       >
-        {{ isRegistering ? 'Already have an account? Log in' : 'New here? Create an account' }}
+        {{ isRegistering ? t('login.switchToLogin') : t('login.switchToRegister') }}
       </button>
     </section>
   </main>

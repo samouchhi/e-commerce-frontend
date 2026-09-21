@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import {
+  clearCart,
   getCart,
   mergeCartItem,
   removeFromCart,
@@ -19,7 +20,7 @@ import BottomNav from './components/layout/BottomNav.vue'
 import CountryFlag from './components/icons/CountryFlag.vue'
 
 const navType =
-  'text-[0.88rem]  leading-none font-semibold tracking-[0.05em] uppercase no-underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[5px] focus-visible:outline-accent'
+  'text-[1rem]  leading-none font-semibold  uppercase no-underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[5px] focus-visible:outline-accent'
 
 const cart = ref([])
 const products = ref([])
@@ -36,11 +37,21 @@ const isLoggedIn = ref(isAuthenticated())
 const user = ref(getUser())
 const refreshCart = () => (cart.value = getCart())
 const cartCount = computed(() => cart.value.reduce((total, item) => total + item.quantity, 0))
+const cartItemSummary = computed(() => t('cart.itemCount').replace('{count}', cartCount.value))
 const cartSubtotal = computed(() =>
-  cart.value.reduce((total, item) => total + item.price * item.quantity, 0),
+  cart.value.reduce(
+    (total, item) => total + (item.unavailable ? 0 : item.price * item.quantity),
+    0,
+  ),
 )
 const canCheckout = computed(() => cart.value.every((item) => !item.unavailable))
 const unavailableItems = computed(() => cart.value.filter((item) => item.unavailable))
+const unavailableSummary = computed(() => {
+  const count = unavailableItems.value.length
+  const key = count === 1 ? 'cart.oneItemNeedsRemoval' : 'cart.manyItemsNeedRemoval'
+
+  return t(key).replace('{count}', count)
+})
 const formatPrice = (price) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)
 const productFor = (item) => products.value.find((product) => product.id === item.productId)
@@ -55,16 +66,21 @@ const imageUrl = (item) => {
 const setWarning = (variantId, message) => {
   warnings.value = { ...warnings.value, [variantId]: message }
 }
+const withStock = (key, stock) => t(key).replace('{stock}', stock)
 const requestRemoval = (item) => (itemPendingRemoval.value = item)
 const confirmRemoval = () => {
   if (!itemPendingRemoval.value) return
   removeFromCart(itemPendingRemoval.value.variantId)
   itemPendingRemoval.value = null
 }
+const clearBag = () => {
+  clearCart()
+  itemPendingRemoval.value = null
+}
 const changeQuantity = (item, value) => {
   const stock = Number(variantFor(item)?.stock_qty ?? Infinity)
   if (Number(value) > stock) {
-    setWarning(item.variantId, `Only ${stock} available.`)
+    setWarning(item.variantId, withStock('cart.onlyAvailable', stock))
     return
   }
   if (updateCartQuantity(item.variantId, value, stock)) setWarning(item.variantId, '')
@@ -87,7 +103,7 @@ const changeVariant = (item, variantId) => {
         Number(variant.stock_qty),
       )
     ) {
-      setWarning(item.variantId, `Only ${variant.stock_qty} available for this variant.`)
+      setWarning(item.variantId, withStock('cart.variantOnlyAvailable', variant.stock_qty))
     }
     return
   }
@@ -118,7 +134,7 @@ const handleAuthUpdate = () => {
   isLoggedIn.value = isAuthenticated()
   user.value = getUser()
 }
-const userName = computed(() => user.value?.name || user.value?.email || 'Your account')
+const userName = computed(() => user.value?.name || user.value?.email || t('profile.account'))
 const handleEscape = (event) => {
   if (event.key === 'Escape') {
     closeBag()
@@ -181,399 +197,401 @@ onUnmounted(() => {
     <div
       class="mx-auto flex max-w-[1200px] items-center justify-between gap-8 px-[clamp(1.25rem,4vw,4.5rem)] py-[0.85rem] max-md:gap-4 max-md:px-5 max-md:py-4"
     >
-    <RouterLink
-      to="/"
-      :class="['flex items-center gap-[0.7rem] text-ink', navType]"
-      :aria-label="`${siteSettings.site_name || ''} home`"
-    >
-      <img
-        v-if="siteSettings.site_logo"
-        class="h-8 w-8 object-contain"
-        :src="assetUrl(siteSettings.site_logo)"
-        :alt="siteSettings.site_name || ''"
-      />
-      <span class="max-md:hidden">{{ siteSettings.site_name }}</span>
-    </RouterLink>
-    <nav class="flex items-center gap-2 max-md:hidden" aria-label="Main navigation">
       <RouterLink
         to="/"
-        :class="[
-          'inline-flex min-h-11 items-center gap-1.5 rounded-[0.2rem] px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink',
-          navType,
-        ]"
-        exact-active-class="text-ink"
+        :class="['flex items-center gap-[0.7rem] text-ink', navType]"
+        :aria-label="`${siteSettings.site_name || ''} home`"
       >
-        <svg
-          class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path d="m3.5 10 8.5-7 8.5 7" />
-          <path d="M5.5 9.5V21h13V9.5M9.5 21v-6h5v6" />
-        </svg>
-        {{ t('nav.home') }}
+        <img
+          v-if="siteSettings.site_logo"
+          class="h-8 w-8 object-contain"
+          :src="assetUrl(siteSettings.site_logo)"
+          :alt="siteSettings.site_name || ''"
+        />
+        <span class="max-md:hidden">{{ siteSettings.site_name }}</span>
       </RouterLink>
-      <RouterLink
-        to="/products"
-        :class="[
-          'inline-flex min-h-11 items-center gap-1.5 rounded-[0.2rem] px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink',
-          navType,
-        ]"
-        exact-active-class="text-ink"
-      >
-        <svg
-          class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <rect x="4" y="4" width="6" height="6" rx="1" />
-          <rect x="14" y="4" width="6" height="6" rx="1" />
-          <rect x="4" y="14" width="6" height="6" rx="1" />
-          <rect x="14" y="14" width="6" height="6" rx="1" />
-        </svg>
-        {{ t('nav.products') }}
-      </RouterLink>
-      <RouterLink
-        to="/promotion"
-        :class="[
-          'inline-flex min-h-11 items-center gap-1.5 rounded-[0.2rem] px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink',
-          navType,
-        ]"
-        exact-active-class="text-ink"
-      >
-        <svg
-          class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path d="M4 12V5h7l9 9-7 7-9-9Z" />
-          <circle cx="8.5" cy="8.5" r="1" />
-        </svg>
-        {{ t('nav.promotions') }}
-      </RouterLink>
-      <div
-        class="category-menu relative"
-        @mouseenter="isCategoryOpen = true"
-        @mouseleave="closeCategory"
-        @focusin="isCategoryOpen = true"
-        @focusout="!$event.currentTarget.contains($event.relatedTarget) && closeCategory()"
-      >
-        <button
+      <nav class="flex items-center gap-2 max-md:hidden" aria-label="Main navigation">
+        <RouterLink
+          to="/"
           :class="[
-            'flex min-h-11 cursor-pointer items-center gap-1.5 rounded-[0.2rem] border-0 bg-transparent px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[5px] focus-visible:outline-accent',
+            'inline-flex min-h-11 items-center gap-1.5 rounded-[0.2rem] px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink',
             navType,
-            isCategoryOpen ? 'text-ink' : '',
           ]"
-          type="button"
-          :aria-expanded="isCategoryOpen"
-          aria-haspopup="menu"
+          exact-active-class="text-ink"
         >
           <svg
             class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
             viewBox="0 0 24 24"
             aria-hidden="true"
           >
-            <path d="M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z" />
+            <path d="m3.5 10 8.5-7 8.5 7" />
+            <path d="M5.5 9.5V21h13V9.5M9.5 21v-6h5v6" />
           </svg>
-          {{ t('nav.category') }}
-          <svg
-            :class="[
-              'h-3 w-3 fill-none stroke-current stroke-[2] transition-transform duration-150 [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none',
-              isCategoryOpen ? 'rotate-180' : '',
-            ]"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-        <div
-          v-if="isCategoryOpen"
-          class="absolute left-0 top-full z-30 min-w-52 overflow-hidden border border-line bg-paper shadow-[0_18px_40px_rgba(32,35,33,0.14)]"
-          role="menu"
-          aria-label="Categories"
-        >
-          <RouterLink
-            v-for="category in categories"
-            :key="category.id"
-            :to="{ path: '/products', query: { category: category.id } }"
-            class="block min-h-11 border-t border-line px-4 py-3 text-[0.7rem] font-bold tracking-[0.08em] text-muted uppercase no-underline transition-colors hover:bg-accent-soft hover:text-ink focus-visible:bg-accent-soft focus-visible:text-ink focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent"
-            role="menuitem"
-            @click="closeCategory"
-          >
-            {{ category.name }}
-          </RouterLink>
-        </div>
-      </div>
-    </nav>
-    <div class="flex items-center gap-[0.8rem]">
-      <div class="locale-menu relative order-0">
-        <button
+          {{ t('nav.home') }}
+        </RouterLink>
+        <RouterLink
+          to="/products"
           :class="[
-            'flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1 border-0 px-2 text-ink transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none',
-            isLocaleOpen ? 'bg-accent-soft' : 'bg-transparent',
+            'inline-flex min-h-11 items-center gap-1.5 rounded-[0.2rem] px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink',
+            navType,
           ]"
-          type="button"
-          :aria-label="`${t('language.english')} / ${t('language.khmer')}`"
-          :aria-expanded="isLocaleOpen"
-          aria-controls="locale-menu"
-          aria-haspopup="menu"
-          @click.stop="isLocaleOpen = !isLocaleOpen"
+          exact-active-class="text-ink"
         >
-          <CountryFlag :country="locale === 'km' ? 'kh' : 'us'" class="h-5" />
           <svg
-            :class="[
-              'h-3 w-3 fill-none stroke-current stroke-[2] transition-transform duration-150 [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none',
-              isLocaleOpen ? 'rotate-180' : '',
-            ]"
+            class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
             viewBox="0 0 24 24"
             aria-hidden="true"
           >
-            <path d="m6 9 6 6 6-6" />
+            <rect x="4" y="4" width="6" height="6" rx="1" />
+            <rect x="14" y="4" width="6" height="6" rx="1" />
+            <rect x="4" y="14" width="6" height="6" rx="1" />
+            <rect x="14" y="14" width="6" height="6" rx="1" />
           </svg>
-        </button>
+          {{ t('nav.products') }}
+        </RouterLink>
+        <RouterLink
+          to="/promotion"
+          :class="[
+            'inline-flex min-h-11 items-center gap-1.5 rounded-[0.2rem] px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink',
+            navType,
+          ]"
+          exact-active-class="text-ink"
+        >
+          <svg
+            class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M4 12V5h7l9 9-7 7-9-9Z" />
+            <circle cx="8.5" cy="8.5" r="1" />
+          </svg>
+          {{ t('nav.promotions') }}
+        </RouterLink>
         <div
-          v-if="isLocaleOpen"
-          id="locale-menu"
-          class="absolute top-[calc(100%+0.65rem)] right-0 z-30 w-56 overflow-hidden border border-line bg-paper p-1.5 shadow-[0_18px_40px_rgba(32,35,33,0.14)]"
-          role="menu"
-          aria-label="Language"
+          class="category-menu relative"
+          @mouseenter="isCategoryOpen = true"
+          @mouseleave="closeCategory"
+          @focusin="isCategoryOpen = true"
+          @focusout="!$event.currentTarget.contains($event.relatedTarget) && closeCategory()"
         >
           <button
             :class="[
-              'flex min-h-14 w-full cursor-pointer items-center gap-4 border-0 px-4 text-left text-base text-ink transition-colors hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none',
-              locale === 'en' ? 'bg-accent-soft font-semibold' : 'bg-transparent',
+              'flex min-h-11 cursor-pointer items-center gap-1.5 rounded-[0.2rem] border-0 bg-transparent px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[5px] focus-visible:outline-accent',
+              navType,
+              isCategoryOpen ? 'text-ink' : '',
             ]"
             type="button"
-            role="menuitemradio"
-            :aria-checked="locale === 'en'"
-            @click="selectLocale('en')"
+            :aria-expanded="isCategoryOpen"
+            aria-haspopup="menu"
           >
-            <CountryFlag country="us" class="h-5 shrink-0" />
-            {{ t('language.english') }}
+            <svg
+              class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z" />
+            </svg>
+            {{ t('nav.category') }}
+            <svg
+              :class="[
+                'h-3 w-3 fill-none stroke-current stroke-[2] transition-transform duration-150 [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none',
+                isCategoryOpen ? 'rotate-180' : '',
+              ]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
           </button>
+          <div
+            v-if="isCategoryOpen"
+            class="absolute left-0 top-full z-30 min-w-52 overflow-hidden border border-line bg-paper shadow-[0_18px_40px_rgba(32,35,33,0.14)]"
+            role="menu"
+            aria-label="Categories"
+          >
+            <RouterLink
+              v-for="category in categories"
+              :key="category.id"
+              :to="{ path: '/products', query: { category: category.id } }"
+              class="block min-h-11 border-t border-line px-4 py-3 text-[0.7rem] font-bold tracking-[0.08em] text-muted uppercase no-underline transition-colors hover:bg-accent-soft hover:text-ink focus-visible:bg-accent-soft focus-visible:text-ink focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent"
+              role="menuitem"
+              @click="closeCategory"
+            >
+              {{ category.name }}
+            </RouterLink>
+          </div>
+        </div>
+      </nav>
+      <div class="flex items-center gap-[0.8rem]">
+        <div class="locale-menu relative order-0">
           <button
             :class="[
-              'flex min-h-14 w-full cursor-pointer items-center gap-4 border-0 px-4 text-left text-base text-ink transition-colors hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none',
-              locale === 'km' ? 'bg-accent-soft font-semibold' : 'bg-transparent',
+              'flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1 border-0 px-2 text-ink transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none',
+              isLocaleOpen ? 'bg-accent-soft' : 'bg-transparent',
             ]"
             type="button"
-            role="menuitemradio"
-            :aria-checked="locale === 'km'"
-            @click="selectLocale('km')"
+            :aria-label="`${t('language.english')} / ${t('language.khmer')}`"
+            :aria-expanded="isLocaleOpen"
+            aria-controls="locale-menu"
+            aria-haspopup="menu"
+            @click.stop="isLocaleOpen = !isLocaleOpen"
           >
-            <CountryFlag country="kh" class="h-5 shrink-0" />
-            {{ t('language.khmer') }}
+            <CountryFlag :country="locale === 'km' ? 'kh' : 'us'" class="h-5" />
+            <svg
+              :class="[
+                'h-3 w-3 fill-none stroke-current stroke-[2] transition-transform duration-150 [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none',
+                isLocaleOpen ? 'rotate-180' : '',
+              ]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
           </button>
+          <div
+            v-if="isLocaleOpen"
+            id="locale-menu"
+            class="absolute top-[calc(100%+0.65rem)] right-0 z-30 w-56 overflow-hidden border border-line bg-paper p-1.5 shadow-[0_18px_40px_rgba(32,35,33,0.14)]"
+            role="menu"
+            aria-label="Language"
+          >
+            <button
+              :class="[
+                'flex min-h-14 w-full cursor-pointer items-center gap-4 border-0 px-4 text-left text-base text-ink transition-colors hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none',
+                locale === 'en' ? 'bg-accent-soft font-semibold' : 'bg-transparent',
+              ]"
+              type="button"
+              role="menuitemradio"
+              :aria-checked="locale === 'en'"
+              @click="selectLocale('en')"
+            >
+              <CountryFlag country="us" class="h-5 shrink-0" />
+              {{ t('language.english') }}
+            </button>
+            <button
+              :class="[
+                'flex min-h-14 w-full cursor-pointer items-center gap-4 border-0 px-4 text-left text-base text-ink transition-colors hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none',
+                locale === 'km' ? 'bg-accent-soft font-semibold' : 'bg-transparent',
+              ]"
+              type="button"
+              role="menuitemradio"
+              :aria-checked="locale === 'km'"
+              @click="selectLocale('km')"
+            >
+              <CountryFlag country="kh" class="h-5 shrink-0" />
+              {{ t('language.khmer') }}
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="profile-menu relative order-2">
+        <div class="profile-menu relative order-2">
+          <button
+            :class="[
+              'flex min-h-11 min-w-11 cursor-pointer items-center justify-center border-0 p-2 text-ink transition-colors duration-150 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transition-none',
+              isProfileOpen ? 'bg-accent-soft' : 'bg-transparent',
+            ]"
+            type="button"
+            :aria-label="isProfileOpen ? t('profile.closeMenu') : t('profile.openMenu')"
+            :aria-expanded="isProfileOpen"
+            aria-haspopup="menu"
+            @click.stop="isProfileOpen = !isProfileOpen"
+          >
+            <svg
+              class="h-[1.55rem] w-[1.55rem] fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="8" r="3.5" />
+              <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
+            </svg>
+          </button>
+          <div
+            v-if="isProfileOpen"
+            class="absolute right-0 top-[calc(100%+0.65rem)] z-30 w-[min(18rem,calc(100vw-2rem))] overflow-hidden border border-line bg-paper shadow-[0_18px_40px_rgba(32,35,33,0.14)]"
+            role="menu"
+            :aria-label="t('profile.menu')"
+          >
+            <template v-if="isLoggedIn">
+              <div class="flex items-center gap-3 border-b border-line px-4 py-4">
+                <span
+                  class="flex h-10 w-10 shrink-0 items-center justify-center bg-accent-soft text-ink"
+                  aria-hidden="true"
+                >
+                  <svg
+                    class="h-5 w-5 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="12" cy="8" r="3.5" />
+                    <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
+                  </svg>
+                </span>
+                <div class="min-w-0">
+                  <p class="m-0 text-[0.72rem] font-bold text-muted uppercase">
+                    {{ t('profile.signedInAs') }}
+                  </p>
+                  <p
+                    class="mt-1 truncate text-[0.95rem] leading-tight font-semibold text-ink"
+                    :title="userName"
+                  >
+                    {{ userName }}
+                  </p>
+                </div>
+              </div>
+              <div class="grid gap-1 p-2">
+                <RouterLink
+                  to="/orders"
+                  class="group flex min-h-11 items-center gap-3 px-3 text-left text-[0.7rem] font-bold text-ink uppercase no-underline transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent motion-reduce:transition-none"
+                  role="menuitem"
+                  @click="closeProfile"
+                >
+                  <svg
+                    class="h-[1.15rem] w-[1.15rem] shrink-0 fill-none stroke-current stroke-[1.7] text-muted transition-colors group-hover:text-ink [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 3h9l3 3v15H6z" />
+                    <path d="M15 3v4h4M9 12h6M9 16h6" />
+                  </svg>
+                  <span class="flex-1 text-[0.8rem]">{{ t('profile.myOrders') }}</span>
+                  <svg
+                    class="h-4 w-4 text-muted transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </RouterLink>
+                <button
+                  class="group flex min-h-11 w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-3 text-left text-[0.8rem] font-bold text-ink uppercase transition-colors duration-150 hover:bg-danger-soft hover:text-danger-strong focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent motion-reduce:transition-none"
+                  type="button"
+                  role="menuitem"
+                  @click="signOut"
+                >
+                  <svg
+                    class="h-[1.15rem] w-[1.15rem] shrink-0 fill-none stroke-current stroke-[1.7] text-muted transition-colors group-hover:text-danger-strong [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path d="M10 5H6v14h4M14 8l4 4-4 4M18 12H9" />
+                  </svg>
+                  <span class="flex-1">{{ t('profile.logOut') }}</span>
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="flex items-center gap-3 border-b border-line px-4 py-4">
+                <span
+                  class="flex h-10 w-10 shrink-0 items-center justify-center bg-accent-soft text-ink"
+                  aria-hidden="true"
+                >
+                  <svg
+                    class="h-5 w-5 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="12" cy="8" r="3.5" />
+                    <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
+                  </svg>
+                </span>
+                <div>
+                  <p class="m-0 text-[0.95rem] font-semibold text-ink">
+                    {{ t('profile.account') }}
+                  </p>
+                  <p class="mt-1 mb-0 text-[0.8rem] leading-tight text-muted">
+                    {{ t('profile.signInToOrders') }}
+                  </p>
+                </div>
+              </div>
+              <div class="grid gap-1 p-2">
+                <RouterLink
+                  to="/login"
+                  class="group flex min-h-11 items-center gap-3 px-3 text-left text-[0.8rem] font-bold text-ink uppercase no-underline transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent motion-reduce:transition-none"
+                  role="menuitem"
+                  @click="closeProfile"
+                >
+                  <svg
+                    class="h-[1.15rem] w-[1.15rem] shrink-0 fill-none stroke-current stroke-[1.7] text-muted group-hover:text-ink [stroke-linecap:round] [stroke-linejoin:round]"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path d="M10 5H6v14h4M14 8l4 4-4 4M18 12H9" />
+                  </svg>
+                  <span class="flex-1">{{ t('profile.logIn') }}</span>
+                  <svg
+                    class="h-4 w-4 text-muted transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </RouterLink>
+                <RouterLink
+                  to="/login?mode=register"
+                  class="group flex min-h-11 items-center gap-3 px-3 text-left text-[0.8rem] font-bold text-ink uppercase no-underline transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent motion-reduce:transition-none"
+                  role="menuitem"
+                  @click="closeProfile"
+                >
+                  <svg
+                    class="h-[1.15rem] w-[1.15rem] shrink-0 fill-none stroke-current stroke-[1.7] text-muted group-hover:text-ink [stroke-linecap:round] [stroke-linejoin:round]"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="8" r="3.5" />
+                    <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5M19 5v6M16 8h6" />
+                  </svg>
+                  <span class="flex-1">{{ t('profile.createAccount') }}</span>
+                  <svg
+                    class="h-4 w-4 text-muted transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </RouterLink>
+              </div>
+            </template>
+          </div>
+        </div>
         <button
           :class="[
-            'flex min-h-11 min-w-11 cursor-pointer items-center justify-center border-0 p-2 text-ink transition-colors duration-150 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transition-none',
-            isProfileOpen ? 'bg-accent-soft' : 'bg-transparent',
+            'relative order-1 inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-2 text-ink',
+            navType,
           ]"
           type="button"
-          :aria-label="isProfileOpen ? 'Close profile menu' : 'Open profile menu'"
-          :aria-expanded="isProfileOpen"
-          aria-haspopup="menu"
-          @click.stop="isProfileOpen = !isProfileOpen"
+          :aria-expanded="isBagOpen"
+          aria-controls="bag-drawer"
+          :aria-label="`Shopping bag, ${cartCount} items`"
+          @click="openBag"
         >
           <svg
-            class="h-[1.55rem] w-[1.55rem] fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
+            class="h-7 w-7 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
             viewBox="0 0 24 24"
             aria-hidden="true"
           >
-            <circle cx="12" cy="8" r="3.5" />
-            <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
+            <path d="M5 8h14l-1 13H6L5 8Z" />
+            <path d="M9 8V6a3 3 0 0 1 6 0v2" />
           </svg>
+          <span
+            v-if="cartCount"
+            class="absolute right-0 top-0 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 p-[0.15rem] text-[0.55rem] leading-none font-bold text-white"
+          >
+            {{ cartCount }}
+          </span>
         </button>
-        <div
-          v-if="isProfileOpen"
-          class="absolute right-0 top-[calc(100%+0.65rem)] z-30 w-[min(18rem,calc(100vw-2rem))] overflow-hidden border border-line bg-paper shadow-[0_18px_40px_rgba(32,35,33,0.14)]"
-          role="menu"
-          aria-label="Account menu"
-        >
-          <template v-if="isLoggedIn">
-            <div class="flex items-center gap-3 border-b border-line px-4 py-4">
-              <span
-                class="flex h-10 w-10 shrink-0 items-center justify-center bg-accent-soft text-ink"
-                aria-hidden="true"
-              >
-                <svg
-                  class="h-5 w-5 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-                  viewBox="0 0 24 24"
-                >
-                  <circle cx="12" cy="8" r="3.5" />
-                  <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
-                </svg>
-              </span>
-              <div class="min-w-0">
-                <p class="m-0 text-[0.62rem] font-bold tracking-[0.12em] text-muted uppercase">
-                  Signed in as
-                </p>
-                <p
-                  class="mt-1 truncate text-[0.95rem] leading-tight font-semibold text-ink"
-                  :title="userName"
-                >
-                  {{ userName }}
-                </p>
-              </div>
-            </div>
-            <div class="grid gap-1 p-2">
-              <RouterLink
-                to="/orders"
-                class="group flex min-h-11 items-center gap-3 px-3 text-left text-[0.7rem] font-bold text-ink uppercase no-underline transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent motion-reduce:transition-none"
-                role="menuitem"
-                @click="closeProfile"
-              >
-                <svg
-                  class="h-[1.15rem] w-[1.15rem] shrink-0 fill-none stroke-current stroke-[1.7] text-muted transition-colors group-hover:text-ink [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="M6 3h9l3 3v15H6z" />
-                  <path d="M15 3v4h4M9 12h6M9 16h6" />
-                </svg>
-                <span class="flex-1">My orders</span>
-                <svg
-                  class="h-4 w-4 text-muted transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </RouterLink>
-              <button
-                class="group flex min-h-11 w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-3 text-left text-[0.7rem] font-bold text-ink uppercase transition-colors duration-150 hover:bg-danger-soft hover:text-danger-strong focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent motion-reduce:transition-none"
-                type="button"
-                role="menuitem"
-                @click="signOut"
-              >
-                <svg
-                  class="h-[1.15rem] w-[1.15rem] shrink-0 fill-none stroke-current stroke-[1.7] text-muted transition-colors group-hover:text-danger-strong [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="M10 5H6v14h4M14 8l4 4-4 4M18 12H9" />
-                </svg>
-                <span class="flex-1">Log out</span>
-              </button>
-            </div>
-          </template>
-          <template v-else>
-            <div class="flex items-center gap-3 border-b border-line px-4 py-4">
-              <span
-                class="flex h-10 w-10 shrink-0 items-center justify-center bg-accent-soft text-ink"
-                aria-hidden="true"
-              >
-                <svg
-                  class="h-5 w-5 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-                  viewBox="0 0 24 24"
-                >
-                  <circle cx="12" cy="8" r="3.5" />
-                  <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
-                </svg>
-              </span>
-              <div>
-                <p class="m-0 text-[0.95rem] font-semibold text-ink">Your account</p>
-                <p class="mt-1 mb-0 text-[0.75rem] leading-tight text-muted">
-                  Sign in to view your orders
-                </p>
-              </div>
-            </div>
-            <div class="grid gap-1 p-2">
-              <RouterLink
-                to="/login"
-                class="group flex min-h-11 items-center gap-3 px-3 text-left text-[0.7rem] font-bold text-ink uppercase no-underline transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent motion-reduce:transition-none"
-                role="menuitem"
-                @click="closeProfile"
-              >
-                <svg
-                  class="h-[1.15rem] w-[1.15rem] shrink-0 fill-none stroke-current stroke-[1.7] text-muted group-hover:text-ink [stroke-linecap:round] [stroke-linejoin:round]"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="M10 5H6v14h4M14 8l4 4-4 4M18 12H9" />
-                </svg>
-                <span class="flex-1">Log in</span>
-                <svg
-                  class="h-4 w-4 text-muted transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </RouterLink>
-              <RouterLink
-                to="/login?mode=register"
-                class="group flex min-h-11 items-center gap-3 px-3 text-left text-[0.7rem] font-bold text-ink uppercase no-underline transition-colors duration-150 hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-accent motion-reduce:transition-none"
-                role="menuitem"
-                @click="closeProfile"
-              >
-                <svg
-                  class="h-[1.15rem] w-[1.15rem] shrink-0 fill-none stroke-current stroke-[1.7] text-muted group-hover:text-ink [stroke-linecap:round] [stroke-linejoin:round]"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="8" r="3.5" />
-                  <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5M19 5v6M16 8h6" />
-                </svg>
-                <span class="flex-1">Create account</span>
-                <svg
-                  class="h-4 w-4 text-muted transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </RouterLink>
-            </div>
-          </template>
-        </div>
       </div>
-      <button
-        :class="[
-          'relative order-1 inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-2 text-ink',
-          navType,
-        ]"
-        type="button"
-        :aria-expanded="isBagOpen"
-        aria-controls="bag-drawer"
-        :aria-label="`Shopping bag, ${cartCount} items`"
-        @click="openBag"
-      >
-        <svg
-          class="h-7 w-7 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path d="M5 8h14l-1 13H6L5 8Z" />
-          <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-        </svg>
-        <span
-          v-if="cartCount"
-          class="absolute right-0 top-0 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 p-[0.15rem] text-[0.55rem] leading-none font-bold text-white"
-        >
-          {{ cartCount }}
-        </span>
-      </button>
-    </div>
     </div>
   </header>
   <RouterView />
@@ -593,7 +611,7 @@ onUnmounted(() => {
         />
         <p
           v-if="siteSettings.site_description"
-          class="m-0 max-w-[32rem] text-[0.9rem] leading-[1.65] text-muted not-italic text-pretty"
+          class="m-0 max-w-[32rem] text-[1rem] leading-[1.65] text-muted not-italic text-pretty"
         >
           {{ siteSettings.site_description }}
         </p>
@@ -602,9 +620,9 @@ onUnmounted(() => {
         v-if="siteSettings.site_address || siteSettings.site_email || siteSettings.site_phone"
         class="grid min-w-0 content-start gap-4 xl:col-span-3"
       >
-        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">{{ t('footer.contact') }}</span>
+        <span class="text-[1rem] font-bold text-accent uppercase">{{ t('footer.contact') }}</span>
         <address
-          class="m-0 grid max-w-[25rem] gap-3 text-[0.88rem] leading-[1.5] text-muted not-italic"
+          class="m-0 grid max-w-[25rem] gap-3 text-[1rem] leading-[1.5] text-muted not-italic"
         >
           <span v-if="siteSettings.site_address" class="flex items-start gap-2.5">
             <svg
@@ -619,7 +637,7 @@ onUnmounted(() => {
           </span>
           <a
             v-if="siteSettings.site_email"
-            class="inline-flex min-h-6 items-center gap-2.5 text-muted no-underline transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="inline-flex min-h-6 items-center text-[1rem] gap-2.5 text-muted no-underline transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
             :href="`mailto:${siteSettings.site_email}`"
           >
             <svg
@@ -634,7 +652,7 @@ onUnmounted(() => {
           </a>
           <a
             v-if="siteSettings.site_phone"
-            class="inline-flex min-h-6 items-center gap-2.5 text-muted no-underline transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="inline-flex min-h-6 items-center text-[1rem] gap-2.5 text-muted no-underline transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
             :href="`tel:${siteSettings.site_phone}`"
           >
             <svg
@@ -642,7 +660,9 @@ onUnmounted(() => {
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
-              <path d="M5 4h3l2 5-2 1.5c1.2 2.5 3 4.3 5.5 5.5L15 14l5 2v3c0 1.1-.9 2-2 2C10.3 21 3 13.7 3 6c0-1.1.9-2 2-2Z" />
+              <path
+                d="M5 4h3l2 5-2 1.5c1.2 2.5 3 4.3 5.5 5.5L15 14l5 2v3c0 1.1-.9 2-2 2C10.3 21 3 13.7 3 6c0-1.1.9-2 2-2Z"
+              />
             </svg>
             {{ siteSettings.site_phone }}
           </a>
@@ -660,7 +680,7 @@ onUnmounted(() => {
         class="grid min-w-0 content-start gap-4 xl:col-span-3"
         aria-label="Social links"
       >
-        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">{{ t('footer.follow') }}</span>
+        <span class="text-[1rem] font-bold text-accent uppercase">{{ t('footer.follow') }}</span>
         <div class="flex flex-wrap gap-2">
           <a
             v-if="siteSettings.site_facebook_url"
@@ -777,8 +797,10 @@ onUnmounted(() => {
         </div>
       </nav>
       <div class="grid min-w-0 content-start gap-4 xl:col-span-2">
-        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">{{ t('footer.payment') }}</span>
-        <div class="flex h-16 w-32 items-center justify-center border border-line bg-paper p-2 shadow-[0_2px_8px_rgba(32,35,33,0.06)]">
+        <span class="text-[1rem] font-bold text-accent uppercase">{{ t('footer.payment') }}</span>
+        <div
+          class="flex h-16 w-32 items-center justify-center border border-line bg-paper p-2 shadow-[0_2px_8px_rgba(32,35,33,0.06)]"
+        >
           <img
             class="block h-full max-w-full object-contain"
             src="/payment-abakhqr.webp"
@@ -799,32 +821,58 @@ onUnmounted(() => {
     >
       <aside
         id="bag-drawer"
-        class="bag-drawer ml-auto flex h-full w-[min(100%,430px)] max-w-[430px] flex-col bg-paper p-6 shadow-[-12px_0_35px_rgba(32,35,33,0.15)] max-xs:p-4"
+        class="bag-drawer ml-auto flex h-full w-[min(100%,430px)] max-w-[430px] flex-col bg-paper p-4 shadow-[-12px_0_35px_rgba(32,35,33,0.15)] sm:p-5"
         role="dialog"
         aria-modal="true"
         aria-labelledby="bag-title"
       >
-        <div class="flex items-center justify-between border-b border-line pb-4">
-          <h2 id="bag-title" class="text-[1.7rem] font-semibold text-ink">
-            Your bag
-            <span
-              class="mb-[0.2rem] ml-[0.55rem] inline-flex h-[1.55rem] min-w-[1.55rem] items-center justify-center rounded-full bg-accent align-middle text-[1.25rem] text-accent-soft"
-              >{{ cartCount }}</span
+        <div class="flex items-center justify-between border-b border-line pb-3">
+          <h2 id="bag-title" class="flex items-center gap-2 text-[1.1rem] font-semibold text-ink">
+            <svg
+              class="h-5 w-5 fill-none stroke-current stroke-[1.8]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
             >
+              <path d="M3 4h2l2 12h10l2-8H6" />
+              <circle cx="9" cy="19" r="1" />
+              <circle cx="17" cy="19" r="1" />
+            </svg>
+            {{ t('cart.title') }}
           </h2>
           <button
-            class="cursor-pointer border-0 bg-transparent text-[1.8rem] leading-none text-ink"
+            class="flex size-9 cursor-pointer items-center justify-center rounded-md border border-line bg-paper text-[1.55rem] leading-none text-[#6c451a] transition-colors hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#6c451a] active:scale-[0.96]"
             type="button"
-            aria-label="Close bag"
+            :aria-label="t('cart.closeBag')"
             @click="closeBag"
           >
             ×
           </button>
         </div>
-        <p v-if="!cart.length" class="py-8 text-[0.8rem] text-muted">Your bag is empty.</p>
+
+        <div
+          v-if="cart.length"
+          class="flex items-center justify-between py-2 text-[0.82rem] text-muted"
+        >
+          <span class="tabular-nums">{{ cartItemSummary }}</span>
+          <button
+            class="flex min-h-9 cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[0.78rem] font-semibold text-sale hover:text-danger-strong focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-danger active:scale-[0.96]"
+            type="button"
+            @click="clearBag"
+          >
+            <svg
+              class="size-4 fill-none stroke-current stroke-[1.8]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+            </svg>
+            {{ t('cart.clearCart') }}
+          </button>
+        </div>
+        <p v-if="!cart.length" class="py-8 text-[0.8rem] text-muted">{{ t('cart.empty') }}</p>
         <div
           v-if="unavailableItems.length"
-          class="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-2 border-l-4 border-danger bg-[#fff0ec] p-3 text-[#7e271c]"
+          class="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-2 border-l-4 border-danger bg-danger-soft p-3 text-danger"
           role="alert"
         >
           <svg
@@ -836,58 +884,62 @@ onUnmounted(() => {
               d="M12 8v5m0 4v.01M10.3 3.8 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"
             />
           </svg>
-          <p class="m-0 text-[0.72rem] leading-[1.4]">
-            Checkout is paused. Remove {{ unavailableItems.length }} unavailable item{{
-              unavailableItems.length === 1 ? '' : 's'
-            }}
-            to continue.
+          <p class="m-0 text-[0.82rem] leading-[1.4]">
+            <strong>{{ t('cart.checkoutPaused') }}.</strong> {{ unavailableSummary }}
           </p>
         </div>
-        <div v-if="cart.length" class="scrollbar-none flex-1 overflow-y-auto">
+
+        <div v-if="cart.length" class="scrollbar-none mt-2 flex-1 space-y-3 overflow-y-auto pb-4">
           <article
             v-for="item in cart"
             :key="item.variantId"
             :class="[
-              'relative grid grid-cols-[4.5rem_1fr] gap-[0.9rem] border-b border-line py-4',
-              item.unavailable ? 'bg-[#fff9f7] px-3' : '',
+              'relative rounded-lg border border-line bg-paper p-3 shadow-[0_1px_2px_rgba(17,17,17,0.03)]',
+              item.unavailable ? 'border-danger-line bg-danger-soft' : '',
             ]"
           >
-            <div class="flex h-[5.5rem] items-center justify-center overflow-hidden bg-accent-soft">
-              <img
-                v-if="imageUrl(item)"
-                class="h-full w-full object-cover"
-                :src="imageUrl(item)"
-                :alt="item.productName"
-              />
-              <span v-else class="text-[0.55rem] text-muted">No image</span>
-            </div>
-            <div class="flex flex-col gap-[0.3rem]">
-              <div class="flex flex-wrap items-center gap-2">
-                <strong class="text-[1.1rem] font-semibold text-ink">{{ item.productName }}</strong>
-                <span
-                  v-if="item.unavailable"
-                  class="bg-danger px-2 py-1 text-[0.52rem] font-bold tracking-[0.08em] text-white uppercase"
-                  >Unavailable</span
-                >
+            <div class="grid grid-cols-[5rem_minmax(0,1fr)_2rem] gap-3">
+              <div
+                class="flex size-20 items-center justify-center overflow-hidden rounded-md bg-accent-soft outline outline-black/10"
+              >
+                <img
+                  v-if="imageUrl(item)"
+                  class="h-full w-full object-cover"
+                  :src="imageUrl(item)"
+                  :alt="item.productName"
+                />
+                <span v-else class="text-center text-[0.55rem] text-muted">{{
+                  t('cart.noImage')
+                }}</span>
               </div>
-              <p
-                v-if="item.unavailable"
-                class="m-0 text-[0.68rem] leading-[1.4] text-[#7e271c]"
-                role="alert"
-              >
-                {{ item.cartMessage || 'This item is no longer available.' }}
-              </p>
-              <label
-                v-if="!item.unavailable"
-                class="my-[0.2rem] flex flex-col gap-[0.35rem] text-[0.58rem] text-muted uppercase"
-              >
-                Size:
+              <div class="min-w-0">
+                <strong
+                  class="block text-[0.9rem] leading-[1.35] font-semibold text-ink [overflow-wrap:anywhere]"
+                  >{{ item.productName }}</strong
+                >
+                <p
+                  v-if="item.unavailable"
+                  class="mt-1 mb-0 text-[0.72rem] leading-[1.35] text-danger"
+                  role="alert"
+                >
+                  {{ t('cart.productUnavailable') }}
+                </p>
+                <div class="mt-2 flex items-baseline gap-2 tabular-nums">
+                  <span
+                    :class="
+                      item.unavailable ? 'text-muted line-through' : 'font-semibold text-sale'
+                    "
+                    >{{ formatPrice(item.price) }}</span
+                  >
+                  <span v-if="item.originalPrice" class="text-[0.78rem] text-muted line-through">{{
+                    formatPrice(item.originalPrice)
+                  }}</span>
+                </div>
                 <select
-                  class="select-chevron min-h-[2.15rem] max-w-full cursor-pointer rounded-[0.35rem] border border-line bg-paper py-[0.45rem] pr-[1.8rem] pl-[0.65rem] text-[0.68rem] font-bold tracking-[0.04em] text-ink transition-[border-color,box-shadow,background-color] duration-[160ms] hover:border-accent hover:bg-accent-soft focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_rgba(17,17,17,0.16)] focus-visible:outline-none"
+                  v-if="!item.unavailable"
+                  :aria-label="t('cart.size')"
+                  class="select-chevron mt-2 min-h-8 max-w-full cursor-pointer rounded border border-line bg-paper py-1 pr-7 pl-2 text-[0.88rem] font-semibold text-ink transition-[border-color,background-color] duration-[160ms] focus-visible:border-accent focus-visible:outline-none"
                   :value="item.variantId"
-                  :style="{
-                    width: `min(${Math.min(Math.max((item.variantName || '').length + 5, 9), 18)}ch, 100%)`,
-                  }"
                   @change="changeVariant(item, $event.target.value)"
                 >
                   <option
@@ -898,114 +950,125 @@ onUnmounted(() => {
                     :value="variant.id"
                     :disabled="!variant.is_active || Number(variant.stock_qty) <= 0"
                   >
-                    {{ variant.name }}{{ Number(variant.stock_qty) <= 0 ? ' (out of stock)' : '' }}
+                    {{ variant.name
+                    }}{{ Number(variant.stock_qty) <= 0 ? ` (${t('cart.outOfStock')})` : '' }}
                   </option>
                 </select>
-              </label>
-              <div class="flex items-center gap-2 uppercase">
-                <span :class="item.unavailable ? 'text-muted line-through' : 'text-accent'">{{
-                  formatPrice(item.price)
-                }}</span>
-                <span
-                  v-if="!item.unavailable && item.originalPrice"
-                  class="text-muted line-through"
-                  >{{ formatPrice(item.originalPrice) }}</span
-                >
               </div>
-              <small
-                v-if="!item.unavailable && item.cartMessage"
-                class="text-[0.58rem] text-danger uppercase"
+              <button
+                class="flex size-8 cursor-pointer items-center justify-center self-start rounded text-sale transition-colors hover:bg-danger-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-danger active:scale-[0.96]"
+                type="button"
+                :aria-label="t('cart.removeFromBag')"
+                :title="t('cart.removeFromBag')"
+                @click="requestRemoval(item)"
               >
-                {{ item.cartMessage }}
-              </small>
-              <div v-if="!item.unavailable" class="mt-[0.35rem] flex items-center gap-2">
+                <svg
+                  class="size-4 fill-none stroke-current stroke-[1.8]"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+                </svg>
+              </button>
+            </div>
+            <div class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
+              <div v-if="!item.unavailable" class="flex items-center gap-1">
                 <button
-                  class="h-[1.6rem] w-[1.6rem] cursor-pointer border border-line bg-transparent text-ink disabled:cursor-not-allowed disabled:text-line"
+                  class="flex size-9 cursor-pointer items-center justify-center border-0 bg-transparent text-[1.15rem] text-ink transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:text-line focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-accent active:scale-[0.96]"
                   type="button"
-                  aria-label="Decrease quantity"
+                  :aria-label="t('cart.decreaseQuantity')"
                   :disabled="item.quantity <= 1"
                   @click="changeQuantity(item, item.quantity - 1)"
                 >
                   −
                 </button>
-                <span class="text-[0.7rem] text-ink">{{ item.quantity }}</span>
+                <span
+                  class="flex h-9 min-w-9 items-center justify-center rounded bg-accent-soft px-2 text-[0.8rem] font-semibold text-ink tabular-nums"
+                  >{{ item.quantity }}</span
+                >
                 <button
-                  class="h-[1.6rem] w-[1.6rem] cursor-pointer border border-line bg-transparent text-ink disabled:cursor-not-allowed disabled:text-line"
+                  class="flex size-9 cursor-pointer items-center justify-center border-0 bg-transparent text-[1.15rem] text-ink transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:text-line focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-accent active:scale-[0.96]"
                   type="button"
-                  aria-label="Increase quantity"
+                  :aria-label="t('cart.increaseQuantity')"
                   @click="changeQuantity(item, item.quantity + 1)"
                 >
                   +
                 </button>
               </div>
-              <small v-if="warnings[item.variantId]" class="text-[0.58rem] text-danger uppercase">{{
-                warnings[item.variantId]
-              }}</small>
+              <span v-else class="text-[0.72rem] font-semibold text-danger">{{
+                t('cart.unavailable')
+              }}</span>
+              <p class="m-0 justify-self-end text-right text-[0.78rem] text-muted">
+                {{ t('cart.total') }}:
+                <strong
+                  :class="[
+                    'text-[0.9rem] tabular-nums',
+                    item.unavailable ? 'text-muted line-through' : 'text-sale',
+                  ]"
+                  >{{ formatPrice(item.price * item.quantity) }}</strong
+                >
+              </p>
             </div>
+            <small
+              v-if="warnings[item.variantId]"
+              class="mt-2 block text-[0.68rem] text-danger"
+              role="status"
+              >{{ warnings[item.variantId] }}</small
+            >
             <button
-              class="absolute top-3 right-1 flex h-11 w-11 cursor-pointer items-center justify-center border-0 bg-transparent text-danger transition-transform hover:bg-danger-soft active:scale-[0.96]"
-              type="button"
-              aria-label="Remove item from bag"
-              title="Remove item from bag"
-              @click="requestRemoval(item)"
-            >
-              <svg
-                class="h-[1.15rem] w-[1.15rem] fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path d="M4 7h16M10 11v6M14 11v6" />
-                <path d="M6 7l1 13h10l1-13" />
-                <path d="M9 7V4h6v3" />
-              </svg>
-            </button>
-            <section
               v-if="itemPendingRemoval?.variantId === item.variantId"
-              class="absolute top-[4.5rem] right-0 z-10 grid w-[min(19rem,calc(100%-0.5rem))] gap-4 border border-line bg-paper p-5 shadow-[0_12px_28px_rgba(32,35,33,0.2)] before:absolute before:-top-2 before:right-5 before:h-4 before:w-4 before:rotate-45 before:border-t before:border-l before:border-line before:bg-paper before:content-['']"
+              class="rounded absolute top-[3.5rem] right-0 z-10 grid w-[min(19rem,calc(100%-0.5rem))] gap-4 border border-line bg-paper p-3 shadow-[0_12px_28px_rgba(32,35,33,0.2)]"
               role="dialog"
-              aria-label="Confirm item removal"
+              :aria-label="t('cart.confirmRemoval')"
             >
-              <p class="m-0 text-[1.05rem] font-semibold text-ink">Are you sure to remove this?</p>
+              <p class="m-0 text-[1.05rem] font-semibold text-ink">{{ t('cart.confirmRemove') }}</p>
               <div class="flex justify-end gap-3">
                 <button
-                  class="min-h-11 px-4 text-[0.7rem] font-bold text-muted uppercase hover:text-ink"
+                  class="min-h-8 px-4 text-[0.7rem] font-bold text-muted hover:text-ink hover:bg-accent-soft cursor-pointer"
                   type="button"
                   @click="itemPendingRemoval = null"
                 >
-                  No
+                  {{ t('cart.no') }}
                 </button>
                 <button
-                  class="min-h-11 bg-accent px-5 text-[0.7rem] font-bold text-white uppercase active:scale-[0.96]"
+                  class="min-h-8 rounded bg-accent px-3 text-[0.7rem] font-bold text-white active:scale-[0.96] cursor-pointer hover:bg-red-500"
                   type="button"
                   @click="confirmRemoval"
                 >
-                  Yes, remove
+                  {{ t('cart.yesRemove') }}
                 </button>
               </div>
-            </section>
+            </button>
           </article>
         </div>
-        <div v-if="cart.length" class="grid gap-[0.7rem] border-t-2 border-ink pt-4">
+
+        <div v-if="cart.length" class="mt-auto grid shrink-0 gap-3 border-t border-line pt-3">
           <div class="flex justify-between">
-            <span class="text-[0.65rem] text-muted uppercase">Subtotal</span
-            ><strong class="text-[0.85rem] font-bold text-ink">{{
+            <span class="text-[0.9rem] font-semibold text-muted">{{ t('cart.subtotal') }}:</span>
+            <strong class="text-[1.4rem] font-bold text-sale tabular-nums">{{
               formatPrice(cartSubtotal)
             }}</strong>
           </div>
           <RouterLink
             v-if="canCheckout"
             to="/checkout"
-            class="block w-full bg-accent p-4 text-center text-[0.7rem] font-bold text-white uppercase no-underline hover:bg-accent-hover"
+            class="flex min-h-11 w-full items-center justify-center gap-2 rounded bg-accent px-4 py-3 text-center text-[0.88rem] font-bold text-white no-underline transition-colors focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#6c451a] active:scale-[0.96]"
             @click="closeBag"
-            >Checkout</RouterLink
+            ><svg
+              class="size-5 fill-none stroke-current stroke-[2]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="m5 12 4 4L19 6" /></svg
+            >{{ t('checkout.title') }}</RouterLink
           >
           <button
             v-else
-            class="w-full cursor-not-allowed bg-muted p-4 text-center text-[0.7rem] font-bold text-white uppercase"
+            class="min-h-11 w-full cursor-not-allowed rounded bg-muted px-4 py-3 text-center text-[0.88rem] font-bold text-white"
             type="button"
             disabled
           >
-            Fix your cart to checkout
+            {{ t('cart.fixCart') }}
           </button>
         </div>
       </aside>

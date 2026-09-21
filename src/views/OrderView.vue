@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { getOrders } from '../services/orderService'
+import { locale, t } from '../services/i18n'
 
 const orders = ref([])
 const isLoading = ref(true)
@@ -10,23 +11,31 @@ const requestInFlight = ref(false)
 const router = useRouter()
 const orderCountLabel = computed(() => String(orders.value.length))
 const deliveryFilter = ref('all')
-const filterOptions = [
-  { value: 'all', label: 'All orders' },
-  { value: 'progress', label: 'In progress' },
-  { value: 'shipped', label: 'Shipped' },
-]
+const filterOptions = computed(() => [
+  { value: 'all', label: t('orders.all') },
+  { value: 'progress', label: t('orders.inProgress') },
+  { value: 'shipped', label: t('orders.shipped') },
+])
+const withValues = (key, values) =>
+  Object.entries(values).reduce(
+    (message, [name, value]) => message.replace(`{${name}}`, value),
+    t(key),
+  )
+const orderCount = (count) => withValues('orders.orderCount', { count })
+const itemCount = (count) => withValues('orders.itemCount', { count })
 
 const formatPrice = (price) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(price) || 0)
 
 const formatDate = (date) => {
-  if (!date) return 'Date unavailable'
+  if (!date) return '—'
   const timestamp = Date.parse(date)
   return Number.isNaN(timestamp)
-    ? 'Date unavailable'
-    : new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(
-        new Date(timestamp),
-      )
+    ? '—'
+    : new Intl.DateTimeFormat(locale.value === 'km' ? 'km-KH' : 'en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date(timestamp))
 }
 
 const statusValue = (status) => {
@@ -38,7 +47,9 @@ const statusValue = (status) => {
 
 const statusLabel = (status) => {
   const value = statusValue(status)
-  return value ? value.replaceAll('_', ' ') : 'Unknown'
+  return value && t(`orders.status.${value}`) !== `orders.status.${value}`
+    ? t(`orders.status.${value}`)
+    : t('orders.unknown')
 }
 
 const statusClass = (status) => {
@@ -55,9 +66,11 @@ const statusClass = (status) => {
 const lineTotal = (item) => Number(item.price || 0) * Number(item.quantity || 0)
 const shippingCostLabel = (cost) => {
   if (cost === null || cost === undefined || cost === '') return '—'
-  return Number(cost) === 0 ? 'Free' : formatPrice(cost)
+  return Number(cost) === 0 ? t('orders.free') : formatPrice(cost)
 }
-const apiError = (error) => error.details?.message || error.message || 'Unable to load your orders.'
+const apiError = (error) => error.details?.message || error.message || t('orders.loadError')
+const variantLabel = (item) =>
+  item.variant_name || item.variant?.name || item.variant || t('orders.noVariant')
 const filterCounts = computed(() => ({
   all: orders.value.length,
   progress: orders.value.filter((order) => statusValue(order.shipping_status) !== 'shipped').length,
@@ -72,7 +85,9 @@ const filteredOrders = computed(() => {
   )
 })
 const selectedFilterLabel = computed(
-  () => filterOptions.find((option) => option.value === deliveryFilter.value)?.label || 'orders',
+  () =>
+    filterOptions.value.find((option) => option.value === deliveryFilter.value)?.label ||
+    t('orders.all'),
 )
 const filterButtonClass = (value) =>
   value === deliveryFilter.value
@@ -103,25 +118,27 @@ onMounted(loadOrders)
 
 <template>
   <main class="mx-auto max-w-[1100px] px-[clamp(1.25rem,4vw,4.5rem)] pt-4 pb-16">
-    <RouterLink to="/" class="back-link">← Continue shopping</RouterLink>
+    <RouterLink
+      to="/"
+      class="inline-flex size-10 items-center justify-center rounded-full bg-accent text-white hover:bg-accent-hover"
+      aria-label="Go back"
+    >
+      <svg class="size-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M19 12H5m6 6-6-6 6-6" />
+      </svg>
+    </RouterLink>
 
     <section class="mb-10 border-b border-ink pb-8" aria-labelledby="orders-title">
       <div class="flex items-end justify-between gap-6 max-sm:block">
         <div>
-          <h1 id="orders-title" class="mb-3 text-[2.75rem] max-md:text-[2.15rem]">Your orders.</h1>
-          <p class="m-0 max-w-[38rem] text-[1.05rem] leading-[1.5] text-muted">
-            Your most recent purchases, newest first.
-          </p>
+          <h1 id="orders-title" class="mb-3 text-[2.75rem] max-md:text-[2.15rem]">
+            {{ t('orders.title') }}
+          </h1>
         </div>
         <div
           v-if="!isLoading && !errorMessage"
           class="border-l border-line pl-6 text-right max-sm:mt-5 max-sm:border-l-0 max-sm:pl-0 max-sm:text-left"
-        >
-          <span class="block text-[0.68rem] font-bold tracking-[0.12em] text-muted uppercase">
-            {{ orderCountLabel }}
-            {{ orders.length === 1 ? 'paid order' : 'paid orders' }}
-          </span>
-        </div>
+        ></div>
       </div>
     </section>
 
@@ -129,41 +146,17 @@ onMounted(loadOrders)
       v-if="!isLoading && !errorMessage && orders.length"
       class="mb-8 flex flex-wrap items-center justify-between gap-4 border border-line bg-accent-soft/35 px-4 py-3"
       role="group"
-      aria-label="Filter orders by delivery status"
+      :aria-label="t('orders.filterByDelivery')"
     >
-      <span
-        class="inline-flex items-center gap-2 text-[0.68rem] font-bold tracking-[0.12em] text-muted uppercase"
-      >
-        <svg
-          class="h-4 w-4 shrink-0 text-ink"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M3 6h11v11H3zM14 10h3.5L21 13.5V17h-7z" />
-          <circle cx="7" cy="18" r="2" />
-          <circle cx="17" cy="18" r="2" />
-        </svg>
-        <span>Filter by delivery</span>
-      </span>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="option in filterOptions"
           :key="option.value"
           type="button"
-          class="inline-flex min-h-11 cursor-pointer items-center gap-2 border px-3 text-[0.68rem] font-bold uppercase transition-[border-color,background-color,color] duration-150 focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none"
+          class="rounded inline-flex min-h-11 cursor-pointer items-center gap-2 border px-3 text-[0.88rem] font-bold uppercase transition-[border-color,background-color,color] duration-150 focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none"
           :class="filterButtonClass(option.value)"
           :aria-pressed="deliveryFilter === option.value"
-          :aria-label="
-            option.label +
-            ': ' +
-            filterCounts[option.value] +
-            (filterCounts[option.value] === 1 ? ' order' : ' orders')
-          "
+          :aria-label="`${option.label}: ${orderCount(filterCounts[option.value])}`"
           @click="deliveryFilter = option.value"
         >
           {{ option.label }}
@@ -183,12 +176,16 @@ onMounted(loadOrders)
       role="status"
       aria-live="polite"
     >
-      Showing {{ filteredOrders.length }} {{ filteredOrders.length === 1 ? 'order' : 'orders' }}.
-      Filter: {{ selectedFilterLabel }}.
+      {{
+        withValues('orders.showing', {
+          count: orderCount(filteredOrders.length),
+          filter: selectedFilterLabel,
+        })
+      }}
     </div>
 
     <section>
-      <div v-if="isLoading" class="grid gap-6" aria-busy="true" aria-label="Loading orders">
+      <div v-if="isLoading" class="grid gap-6" aria-busy="true" :aria-label="t('orders.loading')">
         <div
           v-for="placeholder in 2"
           :key="placeholder"
@@ -214,7 +211,7 @@ onMounted(loadOrders)
           type="button"
           @click="loadOrders"
         >
-          {{ requestInFlight ? 'Loading...' : 'Try again' }}
+          {{ requestInFlight ? t('orders.loading') : t('orders.tryAgain') }}
         </button>
       </div>
 
@@ -225,17 +222,17 @@ onMounted(loadOrders)
         <div class="grid justify-items-start gap-4">
           <div>
             <h2 class="m-0 text-[1.5rem] font-semibold tracking-[-0.02em] text-ink">
-              No orders yet.
+              {{ t('orders.noOrdersTitle') }}
             </h2>
             <p class="mt-2 mb-0 max-w-[34rem] leading-[1.5] text-muted">
-              Once you complete a purchase, your paid orders will appear here.
+              {{ t('orders.noOrdersDescription') }}
             </p>
           </div>
           <RouterLink
             to="/products"
             class="inline-flex min-h-11 items-center bg-accent px-5 text-[0.7rem] font-bold text-white uppercase transition-colors duration-200 hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transition-none"
           >
-            Shop products
+            {{ t('orders.shopProducts') }}
           </RouterLink>
         </div>
       </div>
@@ -246,10 +243,10 @@ onMounted(loadOrders)
       >
         <div>
           <h2 class="m-0 text-[1.5rem] font-semibold tracking-[-0.02em] text-ink">
-            No {{ selectedFilterLabel.toLowerCase() }} orders yet.
+            {{ withValues('orders.noFilteredOrders', { filter: selectedFilterLabel }) }}
           </h2>
           <p class="mt-2 mb-0 max-w-[34rem] leading-[1.5] text-muted">
-            Try another delivery filter to see the rest of your paid orders.
+            {{ t('orders.noFilteredDescription') }}
           </p>
         </div>
         <button
@@ -257,7 +254,7 @@ onMounted(loadOrders)
           class="inline-flex min-h-11 w-fit cursor-pointer items-center border border-ink bg-transparent px-5 text-[0.7rem] font-bold text-ink uppercase transition-colors duration-200 hover:bg-accent hover:text-white focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transition-none"
           @click="deliveryFilter = 'all'"
         >
-          Show all orders
+          {{ t('orders.showAll') }}
         </button>
       </div>
 
@@ -265,7 +262,7 @@ onMounted(loadOrders)
         <article
           v-for="(order, index) in filteredOrders"
           :key="order.id || order.order_number"
-          class="overflow-hidden border border-line bg-paper transition-[border-color,background-color] duration-200 hover:border-ink hover:bg-white motion-reduce:transition-none"
+          class="overflow-hidden border border-line bg-paper transition-[border-color,background-color] duration-200 motion-reduce:transition-none"
           :aria-labelledby="`order-${order.id || index}`"
         >
           <details class="group" :open="index === 0">
@@ -296,7 +293,7 @@ onMounted(loadOrders)
                       <rect x="3" y="5" width="18" height="16" rx="2" />
                       <path d="M8 3v4M16 3v4M3 10h18" />
                     </svg>
-                    <span>{{ formatDate(order.created_at) }}</span>
+                    <span class="text-[0.95rem]">{{ formatDate(order.created_at) }}</span>
                   </span>
                   <span class="text-line" aria-hidden="true">·</span>
                   <span class="inline-flex items-center gap-1.5">
@@ -313,15 +310,14 @@ onMounted(loadOrders)
                       <path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z" />
                       <path d="m4 7.5 8 4.5 8-4.5M12 12v9" />
                     </svg>
-                    <span>
-                      {{ (order.items || []).length }}
-                      {{ (order.items || []).length === 1 ? 'line item' : 'line items' }}
+                    <span class="text-[0.95rem]">
+                      {{ itemCount((order.items || []).length) }}
                     </span>
                   </span>
                 </div>
               </div>
               <div class="flex flex-wrap justify-end gap-2 max-md:justify-start">
-                <span
+                <!-- <span
                   class="inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-[0.62rem] font-bold uppercase"
                   :class="statusClass(order.payment_status)"
                 >
@@ -339,9 +335,9 @@ onMounted(loadOrders)
                     <path d="M3 10h18M7 15h3" />
                   </svg>
                   Payment: {{ statusLabel(order.payment_status) }}
-                </span>
+                </span> -->
                 <span
-                  class="inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-[0.62rem] font-bold uppercase"
+                  class="inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-[0.82rem] font-bold uppercase"
                   :class="statusClass(order.shipping_status)"
                 >
                   <svg
@@ -358,24 +354,12 @@ onMounted(loadOrders)
                     <circle cx="7" cy="18" r="2" />
                     <circle cx="17" cy="18" r="2" />
                   </svg>
-                  Delivery: {{ statusLabel(order.shipping_status) }}
+                  {{ statusLabel(order.shipping_status) }}
                 </span>
               </div>
               <div
                 class="flex items-center justify-end gap-4 max-lg:col-start-2 max-lg:row-start-1 max-md:col-start-1 max-md:row-start-3 max-md:justify-between"
               >
-                <div class="text-right max-md:text-left">
-                  <span
-                    class="block text-[0.62rem] font-bold tracking-[0.1em] text-muted uppercase"
-                  >
-                    Total
-                  </span>
-                  <strong
-                    class="mt-1 block text-[1.2rem] leading-none font-semibold tracking-[-0.02em] text-ink"
-                  >
-                    {{ formatPrice(order.total_amount) }}
-                  </strong>
-                </div>
                 <svg
                   class="h-5 w-5 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
                   viewBox="0 0 24 24"
@@ -396,8 +380,8 @@ onMounted(loadOrders)
             >
               <div class="p-6 max-md:p-5">
                 <div class="mb-2 flex items-baseline justify-between gap-4">
-                  <p class="m-0 text-[0.68rem] font-bold tracking-[0.12em] text-muted uppercase">
-                    Items
+                  <p class="m-0 text-[0.88rem] font-bold tracking-[0.12em] text-muted uppercase">
+                    {{ t('orders.items') }}
                   </p>
                 </div>
                 <ul class="m-0 list-none border-t border-line p-0">
@@ -409,19 +393,22 @@ onMounted(loadOrders)
                     <span class="min-w-0 [overflow-wrap:anywhere]">
                       <strong class="block font-semibold text-ink">{{ item.name }}</strong>
                       <span
-                        class="mt-1 block text-[0.72rem] tracking-[0.06em] text-muted uppercase"
+                        class="mt-1 block text-[0.85rem] tracking-[0.06em] text-muted uppercase"
                       >
-                        Qty {{ item.quantity }} · {{ formatPrice(item.price) }} each
+                        {{ t('orders.size') }}: {{ variantLabel(item) }}
                       </span>
                     </span>
-                    <strong class="shrink-0 text-ink">{{ formatPrice(lineTotal(item)) }}</strong>
+                    <strong class="shrink-0 text-red-500">
+                      <span class="text-ink">{{ item.quantity }} × </span>
+                      {{ formatPrice(lineTotal(item)) }}</strong
+                    >
                   </li>
                 </ul>
               </div>
 
               <aside
                 class="bg-accent-soft/45 p-6 max-md:border-t max-md:border-line max-md:p-5"
-                aria-label="Order total"
+                :aria-label="t('orders.orderTotal')"
               >
                 <div class="flex items-start gap-3">
                   <span
@@ -443,18 +430,15 @@ onMounted(loadOrders)
                     </svg>
                   </span>
                   <div>
-                    <p class="m-0 text-[0.68rem] font-bold tracking-[0.12em] text-muted uppercase">
-                      Order total
-                    </p>
-                    <p class="mt-1 mb-0 text-[0.75rem] leading-[1.35] text-muted">
-                      {{ order.logistic || 'Standard delivery' }}
+                    <p class="m-0 text-[1rem] font-bold text-muted uppercase">
+                      {{ t('orders.orderTotal') }}
                     </p>
                   </div>
                 </div>
                 <dl class="mt-5 grid gap-3 text-[0.82rem]">
                   <div class="flex justify-between gap-4 text-muted">
-                    <dt>Subtotal</dt>
-                    <dd class="m-0">{{ formatPrice(order.subtotal_amount) }}</dd>
+                    <dt class="text-[1rem]">{{ t('orders.subtotal') }}</dt>
+                    <dd class="text-red-500 m-0">{{ formatPrice(order.subtotal_amount) }}</dd>
                   </div>
                   <div class="flex items-start justify-between gap-4 text-muted">
                     <dt class="flex items-start gap-2">
@@ -473,21 +457,25 @@ onMounted(loadOrders)
                         <circle cx="17" cy="18" r="2" />
                       </svg>
                       <span>
-                        <span class="block text-ink">Delivery</span>
-                        <span v-if="order.logistic" class="mt-0.5 block text-[0.72rem]">
+                        <span class="text-[1rem] block text-ink">{{ t('orders.delivery') }}</span>
+                        <span v-if="order.logistic" class="mt-0.5 block text-[0.9rem]">
                           {{ order.logistic }}
                         </span>
                       </span>
                     </dt>
-                    <dd class="m-0 shrink-0 font-semibold text-ink">
+                    <dd class="m-0 shrink-0 font-semibold text-red-500">
                       {{ shippingCostLabel(order.shipping_cost) }}
                     </dd>
                   </div>
                   <div
                     class="mt-2 flex items-end justify-between gap-4 border-t border-ink pt-4 text-ink"
                   >
-                    <dt class="text-[0.68rem] font-bold tracking-[0.12em] uppercase">Total</dt>
-                    <dd class="m-0 text-[1.55rem] leading-none font-semibold tracking-[-0.03em]">
+                    <dt class="text-[1.25rem] font-bold tracking-[0.12em] uppercase">
+                      {{ t('orders.total') }}
+                    </dt>
+                    <dd
+                      class="m-0 text-[1.55rem] text-red-500 leading-none font-semibold tracking-[-0.03em]"
+                    >
                       {{ formatPrice(order.total_amount) }}
                     </dd>
                   </div>

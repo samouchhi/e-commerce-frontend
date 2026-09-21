@@ -52,7 +52,7 @@ export const resolveCart = async () => {
         quantity: current.available ? current.quantity : item.quantity,
         stockQty: current.stock_qty ?? 0,
         unavailable: !current.available,
-        cartMessage: current.message || '',
+        cartMessage: '',
       }
     }),
   )

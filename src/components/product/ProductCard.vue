@@ -51,7 +51,7 @@ const pricing = computed(() => pricingFor(props.product))
     </div>
     <div class="flex flex-col gap-[0.28rem] px-[0.45rem] pt-[0.55rem]">
       <h3
-        class="line-clamp-2 min-h-[2.4em] text-[clamp(0.72rem,1.25vw,0.9rem)] leading-[1.2] font-semibold text-ink"
+        class="line-clamp-2 text-[clamp(0.72rem,1.25vw,0.9rem)] leading-[1.2] font-semibold text-ink"
       >
         {{ product.name }}
       </h3>

@@ -13,9 +13,9 @@ const sectionClass =
 const sectionHeadClass =
   'mb-[clamp(0.8rem,1.6vw,1.15rem)] flex items-center justify-between gap-4 border-b border-line pb-[0.55rem]'
 const sectionTitleClass =
-  'm-0 text-[clamp(1.05rem,2vw,1.4rem)] leading-[1.2] font-semibold tracking-[-0.01em] text-ink'
+  'm-0 text-[clamp(1.05rem,2vw,1.4rem)] leading-[1.2] font-semibold text-ink'
 const sectionLinkClass =
-  'rounded-md inline-flex min-h-7 items-center bg-accent px-2 text-[0.66rem] font-bold tracking-[0.08em] text-white uppercase whitespace-nowrap no-underline transition-[background-color,transform] duration-150 hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-3 focus-visible:outline-accent active:scale-[0.96] motion-reduce:transition-none'
+  'inline-flex min-h-7 items-center px-2 text-[1rem] font-bold text-ink uppercase underline'
 const skeletonGridClass =
   'grid grid-cols-3 items-start gap-x-[0.55rem] gap-y-[clamp(0.9rem,2vw,1.5rem)] border-t border-line md:grid-cols-4'
 const statusClass = 'col-span-full py-8 text-[0.9rem] text-muted'

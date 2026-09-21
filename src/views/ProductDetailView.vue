@@ -5,6 +5,7 @@ import ProductList from '../components/product/ProductList.vue'
 import { addToCart as addItemToCart } from '../services/cartService'
 import { assetUrl } from '../services/api'
 import { getProducts } from '../services/productService'
+import { t } from '../services/i18n'
 import { formatPrice } from '../utils/pricing'
 import { productSlug } from '../utils/slug'
 
@@ -52,8 +53,7 @@ const selectedVariant = computed(
     variants.value[0],
 )
 
-const variantUnavailable = (variant) =>
-  !variant.is_active || Number(variant.stock_qty) <= 0
+const variantUnavailable = (variant) => !variant.is_active || Number(variant.stock_qty) <= 0
 
 const variantClassFor = (variant) =>
   variantUnavailable(variant)
@@ -103,9 +103,9 @@ const loadProduct = async () => {
   try {
     if (!allProducts.value.length) allProducts.value = await getProducts()
     product.value = allProducts.value.find((item) => productSlug(item) === route.params.slug)
-    if (!product.value) error.value = 'Product not found.'
+    if (!product.value) error.value = t('productDetail.notFound')
   } catch (requestError) {
-    error.value = requestError.message || 'Unable to load product.'
+    error.value = requestError.message || t('productDetail.loadError')
   } finally {
     loading.value = false
   }
@@ -117,12 +117,20 @@ watch(() => route.params.slug, loadProduct)
 
 <template>
   <main class="mx-auto max-w-[1100px] px-[clamp(1.25rem,4vw,4.5rem)] pt-4 pb-10">
-    <RouterLink to="/" class="back-link">← Back to shop</RouterLink>
+    <RouterLink
+      to="/"
+      class="inline-flex size-10 items-center justify-center rounded-full bg-accent text-white hover:bg-accent-hover mb-5"
+      aria-label="Go back"
+    >
+      <svg class="size-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M19 12H5m6 6-6-6 6-6" />
+      </svg>
+    </RouterLink>
     <div
       v-if="loading"
       class="grid grid-cols-[minmax(0,1fr)_minmax(300px,0.9fr)] gap-[clamp(1.5rem,3vw,2.5rem)] max-md:grid-cols-1"
       aria-busy="true"
-      aria-label="Loading product"
+      :aria-label="t('productDetail.loading')"
     >
       <div :class="[shimmerClass, 'aspect-[4/5] max-h-[600px]']"></div>
       <div class="flex flex-col gap-4 self-center">
@@ -152,14 +160,14 @@ watch(() => route.params.slug, loadProduct)
               key="no-image"
               class="absolute inset-0 flex h-full items-center justify-center text-[0.7rem] text-muted uppercase"
             >
-              No image
+              {{ t('productDetail.noImage') }}
             </div>
           </Transition>
           <template v-if="images.length > 1">
             <button
               class="absolute top-1/2 left-4 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center border border-ink bg-paper text-[1.25rem] text-ink hover:bg-accent hover:text-white focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent"
               type="button"
-              aria-label="Previous image"
+              :aria-label="t('productDetail.previousImage')"
               @click="previousImage"
             >
               ←
@@ -167,14 +175,18 @@ watch(() => route.params.slug, loadProduct)
             <button
               class="absolute top-1/2 right-4 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center border border-ink bg-paper text-[1.25rem] text-ink hover:bg-accent hover:text-white focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent"
               type="button"
-              aria-label="Next image"
+              :aria-label="t('productDetail.nextImage')"
               @click="nextImage"
             >
               →
             </button>
           </template>
         </div>
-        <div v-if="images.length > 1" class="flex gap-[0.65rem]" aria-label="Product images">
+        <div
+          v-if="images.length > 1"
+          class="flex gap-[0.65rem]"
+          :aria-label="t('productDetail.productImages')"
+        >
           <button
             v-for="(image, index) in images"
             :key="image.id || image.image_path"
@@ -194,7 +206,7 @@ watch(() => route.params.slug, loadProduct)
         </div>
       </div>
       <div>
-        <p class="eyebrow">{{ product.category?.name || 'Collection' }}</p>
+        <p class="eyebrow">{{ product.category?.name || t('productDetail.collection') }}</p>
         <h2 class="my-[0.83em] text-[1.5em] font-bold text-ink">{{ product.name }}</h2>
         <h2 class="my-[0.83em] text-2xl font-bold text-sale">
           {{ formatPrice(selectedPricing.currentPrice) }}
@@ -207,14 +219,19 @@ watch(() => route.params.slug, loadProduct)
         </h2>
 
         <h2 class="mt-6 mb-0 border-b border-line pb-[0.7rem] text-2xl font-semibold text-ink">
-          Please select one size
+          {{ t('productDetail.selectSize') }}
         </h2>
-        <div class="mt-5 flex flex-wrap gap-[0.65rem]" role="group" aria-label="Choose a product variant">
+        <div
+          class="mt-5 flex flex-wrap gap-[0.65rem]"
+          role="group"
+          :aria-label="t('productDetail.chooseVariant')"
+        >
           <button
             v-for="variant in variants"
             :key="variant.id"
             :class="variantClassFor(variant)"
             type="button"
+            class="rounded"
             :disabled="variantUnavailable(variant)"
             :aria-pressed="selectedVariant?.id === variant.id"
             :aria-label="`${variant.name}${variantUnavailable(variant) ? ', unavailable' : ''}`"
@@ -225,12 +242,16 @@ watch(() => route.params.slug, loadProduct)
         </div>
         <div v-if="selectedVariant" class="mt-4 flex items-center justify-between gap-4">
           <button
-            class="min-h-11 cursor-pointer border-0 bg-accent px-[0.8rem] py-[0.6rem] text-[0.62rem] font-bold text-white uppercase hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
+            class="rounded min-h-8 cursor-pointer border-0 bg-accent px-[0.8rem] py-[0.6rem] text-[0.82rem] font-bold text-white uppercase hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
             type="button"
             :disabled="variantUnavailable(selectedVariant)"
             @click="addToCart"
           >
-            {{ addedVariantId === selectedVariant.id ? 'Added to cart' : 'Add to cart' }}
+            {{
+              addedVariantId === selectedVariant.id
+                ? t('productDetail.addedToCart')
+                : t('productDetail.addToCart')
+            }}
           </button>
         </div>
         <details
@@ -238,8 +259,12 @@ watch(() => route.params.slug, loadProduct)
           open
           class="mt-4 max-w-[420px] border-t border-line pt-[0.7rem] text-muted"
         >
-          <summary class="cursor-pointer text-[0.68rem] font-bold text-ink uppercase">Description</summary>
-          <p class="mt-4 text-base text-muted uppercase">Product code: {{ product.product_code }}</p>
+          <summary class="cursor-pointer text-[0.68rem] font-bold text-ink uppercase">
+            {{ t('productDetail.description') }}
+          </summary>
+          <p class="mt-4 text-base text-muted uppercase">
+            {{ t('productDetail.productCode') }}: {{ product.product_code }}
+          </p>
 
           <p class="mt-4">{{ product.description }}</p>
         </details>
@@ -249,7 +274,7 @@ watch(() => route.params.slug, loadProduct)
       v-if="!loading && !error && similarProducts.length"
       class="mt-[clamp(2rem,4vw,3rem)] border-t border-line pt-5"
     >
-      <h3 class="my-4 text-[1.17em] font-bold text-ink">Similar items</h3>
+      <h3 class="my-4 text-[1.17em] font-bold text-ink">{{ t('productDetail.similarItems') }}</h3>
       <ProductList :products="similarProducts" />
     </section>
   </main>

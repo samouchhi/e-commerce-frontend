@@ -13,10 +13,11 @@ import {
 } from '../services/cartService'
 import { createOrder, generateOrderPayment, verifyOrderPayment } from '../services/orderService'
 import { getProducts } from '../services/productService'
+import { t } from '../services/i18n'
 
 const checkoutPageClass = 'mx-auto max-w-[1100px] px-[clamp(1.25rem,4vw,4.5rem)] pt-4 pb-10'
-const sectionLabelClass = 'mb-2 text-base font-bold text-ink uppercase'
-const fieldLabelClass = 'grid gap-[0.45rem] text-[0.65rem] font-bold text-muted uppercase'
+const sectionLabelClass = 'mb-2 text-base font-bold text-ink uppercase text-[1.125rem]'
+const fieldLabelClass = 'grid gap-[0.45rem] text-[0.875rem] font-bold text-muted uppercase'
 const fieldControlClass = 'flex items-center gap-[0.7rem] border-b border-line'
 const fieldIconClass =
   'h-[1.2rem] w-[1.2rem] flex-[0_0_1.2rem] fill-none stroke-muted stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]'
@@ -28,10 +29,10 @@ const optionClass =
   'grid cursor-pointer grid-cols-[auto_3.5rem_minmax(0,1fr)_auto] items-center gap-4 border border-line p-4 text-[0.65rem] font-bold text-muted transition-[border-color,background-color] duration-[160ms] hover:border-accent hover:bg-accent-soft has-[:checked]:border-accent has-[:checked]:bg-accent-soft max-md:grid-cols-[auto_2.75rem_minmax(0,1fr)_auto] max-md:gap-[0.65rem] max-md:p-3'
 const optionImageClass = 'h-11 w-14 object-contain p-1 mix-blend-multiply max-md:w-11'
 const checkoutButtonClass =
-  'block w-full cursor-pointer border-0 bg-accent p-4 text-center text-[0.7rem] font-bold text-white uppercase no-underline hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-muted'
+  'rounded-sm block w-full cursor-pointer border-0 bg-accent p-4 text-center text-[0.875rem] font-bold text-white uppercase no-underline hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-muted'
 const summaryRowClass = 'flex w-full items-center justify-between'
-const summaryLabelClass = 'text-[0.88rem] text-muted uppercase'
-const summaryValueClass = 'text-[0.9rem] font-bold text-ink'
+const summaryLabelClass = 'text-[1rem] text-muted uppercase'
+const summaryValueClass = 'text-[1rem] font-bold text-red-500'
 
 const cart = ref(getCart())
 const refreshCart = () => (cart.value = getCart())
@@ -68,12 +69,10 @@ const canOpenAbaApp = computed(
     paymentDetails.value.deeplink_url.startsWith('abamobilebank://ababank.com?type=payway&qrcode='),
 )
 const paymentStatusMessage = computed(() => {
-  if (paymentAction.value === 'rqpay')
-    return 'Payment requested. Complete the payment in your banking app.'
-  if (paymentAction.value === 'processing-payment')
-    return 'Payment is processing. Waiting for confirmation from ABA.'
-  if (qrTimeUp.value) return 'This QR has expired. Checking whether your payment completed...'
-  return 'Waiting for payment. Confirmation is automatic.'
+  if (paymentAction.value === 'rqpay') return t('checkout.paymentRequested')
+  if (paymentAction.value === 'processing-payment') return t('checkout.paymentProcessing')
+  if (qrTimeUp.value) return t('checkout.qrChecking')
+  return t('checkout.waitingPayment')
 })
 const countdownLabel = computed(() => {
   const minutes = Math.floor(remainingSeconds.value / 60)
@@ -154,7 +153,10 @@ const selectedLogistic = computed(() =>
   logistics.value.find((logistic) => String(logistic.id) === String(selectedLogisticId.value)),
 )
 const subtotal = computed(() =>
-  cart.value.reduce((total, item) => total + Number(item.price) * item.quantity, 0),
+  cart.value.reduce(
+    (total, item) => total + (item.unavailable ? 0 : Number(item.price) * item.quantity),
+    0,
+  ),
 )
 const deliveryFee = computed(() => Number(selectedLogistic.value?.price || 0))
 const total = computed(() => subtotal.value + deliveryFee.value)
@@ -215,7 +217,7 @@ const loadLogistics = async () => {
     logistics.value = Array.isArray(payload) ? payload : payload.data || []
     selectedLogisticId.value = logistics.value[0]?.id || ''
   } catch {
-    logisticsError.value = 'Delivery options could not be loaded. Please try again.'
+    logisticsError.value = t('checkout.deliveryLoadError')
   } finally {
     isLoadingLogistics.value = false
   }
@@ -248,7 +250,7 @@ const resolveCurrentCart = async () => {
   canCheckout.value = resolved.can_checkout
 
   if (!resolved.can_checkout) {
-    errorMessage.value = 'Your cart changed. Remove unavailable products before checkout.'
+    errorMessage.value = t('checkout.cartChanged')
   }
 }
 
@@ -256,7 +258,7 @@ const submitOrder = async () => {
   try {
     await resolveCurrentCart()
   } catch (error) {
-    errorMessage.value = apiError(error, 'Your cart could not be refreshed. Please try again.')
+    errorMessage.value = apiError(error, t('checkout.cartRefreshError'))
     return
   }
   if (
@@ -297,7 +299,7 @@ const submitOrder = async () => {
     })
     if (checkoutUnmounted) return
     const orderId = orderIdFrom(createdOrder)
-    if (!orderId) throw new Error('The order response did not include an order ID.')
+    if (!orderId) throw new Error(t('checkout.missingOrderId'))
     order.value = createdOrder?.data || createdOrder
     stopPaymentPolling()
     paymentCompleted.value = false
@@ -321,13 +323,10 @@ const submitOrder = async () => {
       }
     } catch (error) {
       if (!isSubmitted.value || session !== paymentSession) return
-      errorMessage.value = apiError(
-        error,
-        'The order was created, but KHQR could not be generated.',
-      )
+      errorMessage.value = apiError(error, t('checkout.khqrError'))
     }
   } catch (error) {
-    errorMessage.value = apiError(error, 'Your order could not be created. Please try again.')
+    errorMessage.value = apiError(error, t('checkout.orderCreateError'))
   } finally {
     isSubmitting.value = false
   }
@@ -366,13 +365,13 @@ const checkPayment = async () => {
       paymentExpired.value = true
       remainingSeconds.value = 0
       paymentQrImage.value = ''
-      paymentWarning.value = 'This QR has expired. Close this dialog to start a new checkout.'
+      paymentWarning.value = t('checkout.qrExpiredStartNew')
       stopPaymentPolling()
     }
   } catch (error) {
     if (!isSubmitted.value || session !== paymentSession || error.name === 'AbortError') return
     if ([401, 403, 404, 409, 422].includes(error.status)) {
-      errorMessage.value = apiError(error, 'Payment status could not be checked.')
+      errorMessage.value = apiError(error, t('checkout.paymentCheckError'))
       paymentDetails.value = null
       paymentQrImage.value = ''
       stopPaymentPolling()
@@ -380,8 +379,8 @@ const checkPayment = async () => {
       nextCheckDelay = error.status === 429 ? 30000 : 3000
       errorMessage.value =
         error.status === 429
-          ? 'Payment checks are temporarily limited. Retrying shortly.'
-          : 'Payment status is temporarily unavailable. We will keep checking automatically.'
+          ? t('checkout.paymentRateLimited')
+          : t('checkout.paymentUnavailableRetry')
     }
   } finally {
     if (session === paymentSession) {
@@ -398,7 +397,7 @@ onMounted(async () => {
   try {
     await resolveCurrentCart()
   } catch {
-    errorMessage.value = 'Your cart could not be refreshed. Please try again.'
+    errorMessage.value = t('checkout.cartRefreshError')
   }
   try {
     products.value = await getProducts()
@@ -420,9 +419,17 @@ onUnmounted(() => {
 
 <template>
   <main :class="checkoutPageClass">
-    <RouterLink to="/" class="back-link">← Continue shopping</RouterLink>
-    <p class="eyebrow">Checkout</p>
-    <h2 class="my-[0.83em] text-[1.5em] font-bold text-ink">Complete your order.</h2>
+    <RouterLink
+      to="/"
+      class="inline-flex size-10 items-center justify-center rounded-full bg-accent text-white hover:bg-accent-hover"
+      aria-label="Go back"
+    >
+      <svg class="size-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M19 12H5m6 6-6-6 6-6" />
+      </svg>
+    </RouterLink>
+
+    <h2 class="my-[0.83em] text-[1.5em] font-bold text-ink">{{ t('checkout.completeOrder') }}</h2>
 
     <Teleport to="body">
       <div
@@ -441,10 +448,14 @@ onUnmounted(() => {
             <button
               class="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border-0 bg-[#f0f1f2] p-[10px] text-[#5c6470] focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-[3px] focus-visible:outline-aba"
               type="button"
-              aria-label="Close payment dialog"
+              :aria-label="t('checkout.closeDialog')"
               @click="closePaymentModal"
             >
-              <svg class="h-6 w-6 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24" aria-hidden="true">
+              <svg
+                class="h-6 w-6 fill-none stroke-current stroke-[2.5]"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path d="m14 7-5 5 5 5" />
               </svg>
             </button>
@@ -487,20 +498,21 @@ onUnmounted(() => {
                   <path d="m13 24 8 8 15-16" />
                 </svg>
               </div>
-              <p class="eyebrow">Payment received</p>
-              <h2 class="my-4 text-[clamp(1.4rem,2.6vw,2rem)] leading-[1.15] font-semibold text-ink">
-                Order completed.
+              <p class="eyebrow">{{ t('checkout.paymentReceived') }}</p>
+              <h2
+                class="my-4 text-[clamp(1.4rem,2.6vw,2rem)] leading-[1.15] font-semibold text-ink"
+              >
+                {{ t('checkout.orderCompleted') }}
               </h2>
               <p class="leading-[1.6] text-muted">
-                Thank you for shopping with us. Your payment is confirmed and your order is being
-                prepared.
+                {{ t('checkout.paymentThanks') }}
               </p>
               <div class="mx-auto mt-5 grid w-full max-w-[280px] gap-3">
                 <RouterLink
                   to="/"
                   class="block w-full cursor-pointer border border-solid border-transparent bg-accent p-4 text-center text-[0.7rem] font-bold text-white uppercase no-underline hover:bg-accent-hover"
                   @click="closePaymentModal"
-                  >Continue shopping</RouterLink
+                  >{{ t('checkout.continueShopping') }}</RouterLink
                 >
               </div>
             </div>
@@ -552,13 +564,13 @@ onUnmounted(() => {
                 v-if="paymentDetails && !paymentExpired && !qrTimeUp"
                 class="m-0 font-[Arial,sans-serif] text-base leading-[1.5] font-normal text-[#737373]"
               >
-                Scan with mobile banking app<br />that supports KHQR
+                {{ t('checkout.scanWithApp') }}
               </p>
               <div
                 v-if="!paymentDetails && !errorMessage"
                 class="flex justify-center py-6"
                 role="status"
-                aria-label="Preparing your QR code"
+                :aria-label="t('checkout.preparingQr')"
               >
                 <span
                   class="h-9 w-9 animate-qr rounded-full border-4 border-solid border-[#e8edef] border-t-aba motion-reduce:animate-none"
@@ -591,14 +603,14 @@ onUnmounted(() => {
                   <div>
                     <strong>{{
                       errorMessage
-                        ? 'Payment unavailable'
+                        ? t('checkout.paymentUnavailable')
                         : paymentExpired
-                          ? 'QR expired'
-                          : 'Payment not received yet'
+                          ? t('checkout.qrExpired')
+                          : t('checkout.paymentNotReceived')
                     }}</strong>
                     <p class="mt-[0.4rem]">{{ errorMessage || paymentWarning }}</p>
                     <p v-if="!errorMessage && !paymentExpired" class="mt-[0.4rem]">
-                      Finish paying in your banking app. Confirmation will appear automatically.
+                      {{ t('checkout.finishPaying') }}
                     </p>
                   </div>
                 </div>
@@ -609,14 +621,14 @@ onUnmounted(() => {
                   :href="paymentDetails.deeplink_url"
                   class="block w-full cursor-pointer border border-solid border-transparent bg-accent p-4 text-center text-[0.7rem] font-bold text-white uppercase no-underline hover:bg-accent-hover"
                 >
-                  Open ABA Mobile
+                  {{ t('checkout.openAba') }}
                 </a>
                 <button
                   class="block w-full cursor-pointer border border-solid border-line bg-transparent p-4 text-center text-[0.7rem] font-bold text-ink uppercase no-underline hover:bg-ink hover:text-white disabled:cursor-not-allowed"
                   type="button"
                   @click="closePaymentModal"
                 >
-                  Close
+                  {{ t('checkout.close') }}
                 </button>
               </div>
             </div>
@@ -632,41 +644,51 @@ onUnmounted(() => {
     >
       <div class="grid gap-8">
         <section class="grid gap-4 border-t-2 border-ink pt-4">
-          <p :class="sectionLabelClass">Contact information</p>
+          <p :class="sectionLabelClass">{{ t('checkout.contactInfo') }}</p>
+
           <label :class="fieldLabelClass">
-            Name
             <span :class="fieldControlClass">
               <svg :class="fieldIconClass" viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="12" cy="8" r="3.5" />
                 <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
               </svg>
-              <input v-model.trim="form.name" required type="text" autocomplete="name" :class="controlClass" />
+              <input
+                :placeholder="t('checkout.name')"
+                v-model.trim="form.name"
+                required
+                type="text"
+                autocomplete="name"
+                :class="controlClass"
+              />
             </span>
           </label>
           <label :class="fieldLabelClass">
-            Phone
             <span :class="fieldControlClass">
               <svg :class="fieldIconClass" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   d="M7 4h3l1.2 4-2.1 1.7a13 13 0 0 0 5.2 5.2l1.7-2.1L20 14v3c0 1.7-1.3 3-3 3C9.8 20 4 14.2 4 7c0-1.7 1.3-3 3-3Z"
                 />
               </svg>
-              <span class="border-r border-line pr-[0.7rem] text-base font-bold whitespace-nowrap text-accent" aria-label="Cambodia country code">+855</span>
+              <span
+                class="border-r border-line pr-[0.7rem] text-base font-bold whitespace-nowrap text-accent"
+                aria-label="Cambodia country code"
+                >+855</span
+              >
               <input
                 v-model.trim="form.phone"
                 required
                 type="tel"
                 inputmode="tel"
                 autocomplete="tel-national"
-                placeholder="12 345 678"
+                :placeholder="t('checkout.phone')"
                 pattern="[0-9][0-9 ]{7,11}"
-                title="Enter a Cambodian phone number without +855"
+                :title="t('checkout.phoneTitle')"
                 :class="controlClass"
               />
             </span>
           </label>
           <label :class="fieldLabelClass">
-            City / province (required)
+            {{ t('checkout.cityProvince') }}
             <span :class="fieldControlClass">
               <svg :class="fieldIconClass" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z" />
@@ -678,7 +700,7 @@ onUnmounted(() => {
                 autocomplete="address-level1"
                 :class="[controlClass, 'cursor-pointer max-w-full']"
               >
-                <option disabled value="">Select province</option>
+                <option disabled value="">{{ t('checkout.selectProvince') }}</option>
                 <option v-for="province in cambodiaProvinces" :key="province" :value="province">
                   {{ province }}
                 </option>
@@ -686,31 +708,34 @@ onUnmounted(() => {
             </span>
           </label>
           <label :class="fieldLabelClass">
-            Address (required)
+            {{ t('checkout.address') }}
             <textarea
               v-model.trim="form.address"
-              required
               autocomplete="street-address"
               rows="2"
-              placeholder="House number, street, village or district"
+              :placeholder="t('checkout.addressPlaceholder')"
               :class="textareaClass"
             ></textarea>
           </label>
           <label :class="fieldLabelClass">
-            Delivery note (optional)
+            {{ t('checkout.deliveryNote') }}
             <textarea
               v-model.trim="form.note"
               rows="2"
-              placeholder="Landmark or delivery instructions"
+              :placeholder="t('checkout.notePlaceholder')"
               :class="textareaClass"
             ></textarea>
           </label>
         </section>
 
         <section class="grid gap-4 border-t-2 border-ink pt-4">
-          <p :class="sectionLabelClass">Select delivery</p>
-          <p v-if="isLoadingLogistics" class="col-span-full py-8 text-[0.9rem] text-muted" role="status">
-            Loading delivery options...
+          <p :class="sectionLabelClass">{{ t('checkout.selectDelivery') }}</p>
+          <p
+            v-if="isLoadingLogistics"
+            class="col-span-full py-8 text-[0.9rem] text-muted"
+            role="status"
+          >
+            {{ t('checkout.loadingDelivery') }}
           </p>
           <p v-else-if="logisticsError" class="col-span-full py-8 text-[0.9rem] text-danger">
             {{ logisticsError }}
@@ -732,49 +757,69 @@ onUnmounted(() => {
               loading="lazy"
             />
             <span class="grid gap-[0.3rem]">
-              <strong class="text-[1.15rem] font-semibold text-ink normal-case">{{ logistic.name }}</strong>
-              <small class="text-[0.62rem] text-muted normal-case">{{ logistic.description }}</small>
+              <strong class="text-[1.15rem] font-semibold text-ink normal-case">{{
+                logistic.name
+              }}</strong>
+              <small class="text-[0.62rem] text-muted normal-case">{{
+                logistic.description
+              }}</small>
             </span>
-            <b class="text-base font-bold text-accent max-md:text-[0.62rem]">{{ formatPrice(logistic.price) }}</b>
+            <b class="text-base font-bold text-red-500 max-md:text-[0.62rem]">{{
+              formatPrice(logistic.price)
+            }}</b>
           </label>
           <p
             v-if="!isLoadingLogistics && !logisticsError && !logistics.length"
             class="col-span-full py-8 text-[0.9rem] text-muted"
           >
-            No delivery options are available.
+            {{ t('checkout.noDelivery') }}
           </p>
         </section>
 
         <section class="grid gap-4 border-t-2 border-ink pt-4">
-          <p :class="sectionLabelClass">Payment method</p>
+          <p :class="sectionLabelClass">{{ t('checkout.paymentMethod') }}</p>
           <label :class="optionClass">
             <input checked type="radio" name="payment" value="aba-khqr" class="m-0 accent-accent" />
             <img :class="optionImageClass" :src="abaKhqrLogo" alt="ABA KHQR logo" />
             <span class="grid gap-[0.3rem]">
               <strong class="text-[1.15rem] font-semibold text-ink normal-case">ABA KHQR</strong>
-              <small class="text-[0.62rem] text-muted normal-case">Pay securely with ABA Mobile</small>
+              <small class="text-[0.62rem] text-muted normal-case">{{
+                t('checkout.paySecurely')
+              }}</small>
             </span>
           </label>
         </section>
       </div>
 
       <aside class="sticky top-4 grid gap-4 border-t-2 border-ink pt-4 max-md:static">
-        <p class="m-0 text-[0.78rem] font-bold text-muted uppercase">Order summary</p>
+        <p class="m-0 text-[1rem] font-bold text-muted uppercase">
+          {{ t('checkout.orderSummary') }}
+        </p>
         <section
           v-if="unavailableItems.length"
           class="grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-l-4 border-danger bg-[#fff0ec] p-4 text-[#7e271c]"
           role="alert"
         >
-          <svg class="mt-0.5 h-5 w-5 shrink-0 fill-none stroke-current stroke-[2]" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 8v5m0 4v.01M10.3 3.8 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z" />
+          <svg
+            class="mt-0.5 h-5 w-5 shrink-0 fill-none stroke-current stroke-[2]"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 8v5m0 4v.01M10.3 3.8 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"
+            />
           </svg>
           <div class="grid gap-1">
-            <strong class="text-[0.72rem] font-bold uppercase">Checkout is paused</strong>
-            <p class="m-0 text-[0.8rem] leading-[1.45]">Return to your cart and remove unavailable items to continue.</p>
+            <strong class="text-[0.72rem] font-bold uppercase">{{
+              t('checkout.checkoutPaused')
+            }}</strong>
+            <p class="m-0 text-[0.8rem] leading-[1.45]">{{ t('checkout.fixCart') }}</p>
           </div>
         </section>
         <div class="grid gap-[1.15rem] border-b border-line pb-5">
-          <p v-if="!cart.length" class="m-0 text-[0.75rem] text-muted">Your cart is empty.</p>
+          <p v-if="!cart.length" class="m-0 text-[0.95rem] text-muted">
+            {{ t('checkout.cartEmpty') }}
+          </p>
           <article
             v-for="item in cart"
             :key="item.variantId"
@@ -784,24 +829,38 @@ onUnmounted(() => {
             ]"
           >
             <div class="flex h-16 w-16 items-center justify-center overflow-hidden bg-accent-soft">
-              <img v-if="imageUrl(item)" class="h-full w-full object-cover" :src="imageUrl(item)" :alt="item.productName" />
-              <span v-else class="text-center text-[0.5rem] text-muted" aria-hidden="true">No image</span>
+              <img
+                v-if="imageUrl(item)"
+                class="h-full w-full object-cover"
+                :src="imageUrl(item)"
+                :alt="item.productName"
+              />
+              <span v-else class="text-center text-[0.5rem] text-muted" aria-hidden="true">{{
+                t('checkout.noImage')
+              }}</span>
             </div>
             <div class="grid min-w-0 gap-[0.25rem]">
               <div class="flex flex-wrap items-center gap-2">
-                <strong class="text-[1.1rem] leading-[1.15] font-semibold text-ink [overflow-wrap:anywhere]">{{ item.productName }}</strong>
-                <span v-if="item.unavailable" class="bg-danger px-2 py-1 text-[0.52rem] font-bold tracking-[0.08em] text-white uppercase">Unavailable</span>
+                <strong
+                  class="text-[1.1rem] leading-[1.15] font-semibold text-ink [overflow-wrap:anywhere]"
+                  >{{ item.productName }}</strong
+                >
+                <span
+                  v-if="item.unavailable"
+                  class="bg-danger px-2 py-1 text-[0.52rem] font-bold text-white uppercase"
+                  >{{ t('checkout.unavailable') }}</span
+                >
               </div>
-              <small v-if="item.unavailable" class="text-[0.68rem] leading-[1.4] text-[#7e271c]" role="alert">
-                {{ item.cartMessage || 'This item is no longer available.' }}
+              <small
+                v-if="item.unavailable"
+                class="text-[0.68rem] leading-[1.4] text-[#7e271c]"
+                role="alert"
+              >
+                {{ t('checkout.productUnavailable') }}
               </small>
-              <small v-else-if="item.cartMessage" class="text-[0.62rem] text-danger" role="status">
-                {{ item.cartMessage }}
-              </small>
-              <label v-if="!item.unavailable" class="text-[0.72rem] text-muted uppercase">
-                Size
+              <label v-if="!item.unavailable" class="text-[1rem] text-muted uppercase">
                 <select
-                  class="w-fit max-w-full cursor-pointer border-0 bg-transparent py-[0.35rem] text-[0.8rem] text-muted"
+                  class="select-chevron mt-2 min-h-8 max-w-full cursor-pointer rounded border border-line bg-paper py-1 pr-7 pl-2 text-[0.88rem] font-semibold text-ink transition-[border-color,background-color] duration-[160ms] focus-visible:border-accent focus-visible:outline-none"
                   :value="item.variantId"
                   @change="changeVariant(item, $event.target.value)"
                 >
@@ -829,32 +888,55 @@ onUnmounted(() => {
                 >
                   −
                 </button>
-                <span class="min-w-6 text-center text-[0.72rem] font-bold text-ink" aria-live="polite">{{ item.quantity }}</span>
+                <span
+                  class="min-w-6 text-center text-[0.72rem] font-bold text-ink"
+                  aria-live="polite"
+                  >{{ item.quantity }}</span
+                >
                 <button
                   class="flex h-full w-8 cursor-pointer items-center justify-center border-0 bg-transparent text-[1.15rem] text-ink enabled:hover:bg-accent-soft enabled:hover:text-accent disabled:cursor-not-allowed disabled:text-line"
                   type="button"
                   aria-label="Increase quantity"
-                  :disabled="item.unavailable || item.quantity >= Number(variantFor(item)?.stock_qty ?? Infinity)"
+                  :disabled="
+                    item.unavailable ||
+                    item.quantity >= Number(variantFor(item)?.stock_qty ?? Infinity)
+                  "
                   @click="changeQuantity(item, item.quantity + 1)"
                 >
                   +
                 </button>
               </div>
             </div>
-            <div class="col-start-3 row-start-2 grid justify-items-end gap-1 text-right whitespace-nowrap">
-              <b :class="['text-base font-bold', item.unavailable ? 'text-muted line-through' : 'text-accent']">{{ formatPrice(lineTotal(item)) }}</b>
-              <span v-if="!item.unavailable && item.originalPrice" class="text-[0.72rem] text-muted line-through">{{ formatPrice(item.originalPrice * item.quantity) }}</span>
+            <div
+              class="col-start-3 row-start-2 grid justify-items-end gap-1 text-right whitespace-nowrap"
+            >
+              <b
+                :class="[
+                  'text-base font-bold',
+                  item.unavailable ? 'text-muted line-through' : 'text-red-500',
+                ]"
+                >{{ formatPrice(lineTotal(item)) }}</b
+              >
+              <span v-if="item.originalPrice" class="text-[0.72rem] text-muted line-through">{{
+                formatPrice(item.originalPrice * item.quantity)
+              }}</span>
             </div>
           </article>
         </div>
         <div :class="summaryRowClass">
-          <span :class="summaryLabelClass">Subtotal</span><strong :class="summaryValueClass">{{ formatPrice(subtotal) }}</strong>
+          <span :class="summaryLabelClass">{{ t('checkout.subtotal') }}</span
+          ><strong :class="summaryValueClass">{{ formatPrice(subtotal) }}</strong>
         </div>
+        <p v-if="unavailableItems.length" class="m-0 text-[0.7rem] leading-[1.4] text-muted">
+          {{ t('cart.unavailableExcluded') }}
+        </p>
         <div :class="summaryRowClass">
-          <span :class="summaryLabelClass">Delivery</span><strong :class="summaryValueClass">{{ formatPrice(deliveryFee) }}</strong>
+          <span :class="summaryLabelClass">{{ t('checkout.delivery') }}</span
+          ><strong :class="summaryValueClass">{{ formatPrice(deliveryFee) }}</strong>
         </div>
         <div :class="[summaryRowClass, 'mt-2 border-t border-line pt-4']">
-          <span :class="summaryLabelClass">Total</span><strong class="text-base font-bold text-accent">{{ formatPrice(total) }}</strong>
+          <span :class="summaryLabelClass">{{ t('checkout.total') }}</span
+          ><strong class="text-base font-bold text-red-500">{{ formatPrice(total) }}</strong>
         </div>
         <p v-if="errorMessage" class="col-span-full py-8 text-[0.9rem] text-danger" role="alert">
           {{ errorMessage }}
@@ -862,9 +944,17 @@ onUnmounted(() => {
         <button
           :class="checkoutButtonClass"
           type="submit"
-          :disabled="!cart.length || !canCheckout || isSubmitting || isLoadingLogistics || !selectedLogistic"
+          :disabled="
+            !cart.length || !canCheckout || isSubmitting || isLoadingLogistics || !selectedLogistic
+          "
         >
-          {{ isSubmitting ? 'Creating order...' : canCheckout ? 'Review order' : 'Fix your cart first' }}
+          {{
+            isSubmitting
+              ? t('checkout.creatingOrder')
+              : canCheckout
+                ? t('checkout.reviewOrder')
+                : t('checkout.fixCartFirst')
+          }}
         </button>
       </aside>
     </form>
