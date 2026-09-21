@@ -26,7 +26,7 @@ const pricing = computed(() => pricingFor(props.product))
     class="group block min-w-0 text-inherit no-underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent"
   >
     <div
-      class="relative aspect-square overflow-hidden rounded-[0.2rem] bg-white shadow-[0_2px_8px_rgba(32,35,33,0.1)] after:pointer-events-none after:absolute after:inset-[0.65rem] after:translate-x-[0.45rem] after:translate-y-[0.45rem] after:border after:border-white/50 after:transition-transform after:duration-[350ms] after:content-[''] group-hover:after:translate-x-0 group-hover:after:translate-y-0 max-md:after:hidden"
+      class="relative aspect-square overflow-hidden rounded-[0.2rem] bg-white shadow-[0_2px_8px_rgba(32,35,33,0.1)]"
     >
       <span
         v-if="pricing.hasDiscount"
