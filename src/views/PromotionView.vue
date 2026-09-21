@@ -5,11 +5,9 @@ import { getProducts } from '../services/productService'
 import { formatExpiry, groupPromotions, isOnPromotion } from '../utils/pricing'
 
 const catalogClass =
-  'mx-auto max-w-[1200px] px-[clamp(1.25rem,4vw,4.5rem)] py-[clamp(1.25rem,2.5vw,2rem)]'
-const introClass = 'max-w-[680px] pb-[clamp(1.25rem,2.5vw,2rem)]'
-const leadClass = 'mb-[0.35rem] max-w-[370px] text-[1.05rem] text-muted'
+  'mx-auto max-w-[1200px] px-[clamp(1.25rem,4vw,4.5rem)] py-[clamp(2rem,4vw,3.5rem)]'
 const skeletonGridClass =
-  'grid grid-cols-3 items-start gap-x-[0.55rem] gap-y-[clamp(0.9rem,2vw,1.5rem)] border-t border-line md:grid-cols-4'
+  'grid grid-cols-2 items-start gap-x-[0.7rem] gap-y-[clamp(1rem,2vw,1.5rem)] md:grid-cols-3 lg:grid-cols-4'
 const statusClass = 'col-span-full py-8 text-[0.9rem] text-muted'
 const promoNameClass =
   "m-0 flex w-full items-center gap-[0.9rem] text-[clamp(1.1rem,4vw,1.5rem)] leading-[1.25] font-semibold text-ink before:min-w-4 before:flex-1 before:border-t before:border-ink before:content-[''] after:min-w-4 after:flex-1 after:border-t after:border-ink after:content-['']"
@@ -34,6 +32,12 @@ onMounted(async () => {
 
 <template>
   <main :class="catalogClass">
+    <div class="mb-[clamp(1.5rem,3vw,2.5rem)] justify-items-center">
+      <h1 class="mt-6 text-[clamp(1.8rem,4vw,2.7rem)] font-medium tracking-[-0.04em] uppercase">
+        Promotions
+      </h1>
+    </div>
+
     <section aria-live="polite">
       <div
         v-if="loading"
@@ -49,10 +53,12 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+
       <p v-else-if="error" :class="[statusClass, 'text-danger']">{{ error }}</p>
       <p v-else-if="!promotions.length" :class="statusClass">
         No promotions are running right now. Check back soon.
       </p>
+
       <div v-else>
         <div
           v-for="group in promoGroups"

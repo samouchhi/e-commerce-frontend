@@ -26,7 +26,7 @@ const pricing = computed(() => pricingFor(props.product))
     class="group block min-w-0 text-inherit no-underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent"
   >
     <div
-      class="relative aspect-square overflow-hidden bg-white after:pointer-events-none after:absolute after:inset-[0.65rem] after:translate-x-[0.45rem] after:translate-y-[0.45rem] after:border after:border-white/50 after:transition-transform after:duration-[350ms] after:content-[''] group-hover:after:translate-x-0 group-hover:after:translate-y-0 max-md:after:hidden"
+      class="relative aspect-square overflow-hidden rounded-[0.2rem] bg-white shadow-[0_2px_8px_rgba(32,35,33,0.1)] after:pointer-events-none after:absolute after:inset-[0.65rem] after:translate-x-[0.45rem] after:translate-y-[0.45rem] after:border after:border-white/50 after:transition-transform after:duration-[350ms] after:content-[''] group-hover:after:translate-x-0 group-hover:after:translate-y-0 max-md:after:hidden"
     >
       <span
         v-if="pricing.hasDiscount"
@@ -49,19 +49,19 @@ const pricing = computed(() => pricingFor(props.product))
         No image
       </div>
     </div>
-    <div class="flex flex-col gap-[0.2rem] px-[0.4rem] pt-[0.45rem]">
+    <div class="flex flex-col gap-[0.28rem] px-[0.45rem] pt-[0.55rem]">
       <h3
-        class="line-clamp-2 text-[clamp(0.62rem,2.1vw,0.9rem)] leading-[1.2] font-semibold text-ink"
+        class="line-clamp-2 min-h-[2.4em] text-[clamp(0.72rem,1.25vw,0.9rem)] leading-[1.2] font-semibold text-ink"
       >
         {{ product.name }}
       </h3>
       <div class="order-1 flex flex-wrap items-baseline gap-[0.3rem]">
-        <span class="text-[clamp(0.6rem,1.9vw,1rem)] font-bold text-sale">{{
+        <span class="text-[clamp(0.75rem,1.35vw,1rem)] font-bold text-sale">{{
           formatPrice(pricing.currentPrice)
         }}</span>
         <s
           v-if="pricing.hasDiscount"
-          class="text-[clamp(0.5rem,1.55vw,1rem)] font-normal text-muted line-through"
+          class="text-[clamp(0.65rem,1.1vw,0.9rem)] font-normal text-muted line-through"
         >
           {{ formatPrice(pricing.originalPrice) }}
         </s>

@@ -17,7 +17,7 @@ import { assetUrl } from './services/api'
 import BottomNav from './components/layout/BottomNav.vue'
 
 const navType =
-  'text-[0.72rem] leading-[1.2] font-bold tracking-[0.08em] uppercase no-underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[5px] focus-visible:outline-accent'
+  'text-[0.88rem]  leading-none font-semibold tracking-[0.05em] uppercase no-underline focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[5px] focus-visible:outline-accent'
 
 const cart = ref([])
 const products = ref([])
@@ -183,26 +183,61 @@ onUnmounted(() => {
       />
       <span class="max-md:hidden">{{ siteSettings.site_name }}</span>
     </RouterLink>
-    <nav class="flex gap-8 max-md:hidden" aria-label="Main navigation">
+    <nav class="flex items-center gap-2 max-md:hidden" aria-label="Main navigation">
       <RouterLink
         to="/"
-        :class="['text-muted transition-colors hover:text-ink', navType]"
+        :class="[
+          'inline-flex min-h-11 items-center gap-1.5 rounded-[0.2rem] px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink',
+          navType,
+        ]"
         exact-active-class="text-ink"
       >
+        <svg
+          class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="m3.5 10 8.5-7 8.5 7" />
+          <path d="M5.5 9.5V21h13V9.5M9.5 21v-6h5v6" />
+        </svg>
         Home
       </RouterLink>
       <RouterLink
         to="/products"
-        :class="['text-muted transition-colors hover:text-ink', navType]"
+        :class="[
+          'inline-flex min-h-11 items-center gap-1.5 rounded-[0.2rem] px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink',
+          navType,
+        ]"
         exact-active-class="text-ink"
       >
+        <svg
+          class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <rect x="4" y="4" width="6" height="6" rx="1" />
+          <rect x="14" y="4" width="6" height="6" rx="1" />
+          <rect x="4" y="14" width="6" height="6" rx="1" />
+          <rect x="14" y="14" width="6" height="6" rx="1" />
+        </svg>
         Product
       </RouterLink>
       <RouterLink
         to="/promotion"
-        :class="['text-muted transition-colors hover:text-ink', navType]"
+        :class="[
+          'inline-flex min-h-11 items-center gap-1.5 rounded-[0.2rem] px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink',
+          navType,
+        ]"
         exact-active-class="text-ink"
       >
+        <svg
+          class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="M4 12V5h7l9 9-7 7-9-9Z" />
+          <circle cx="8.5" cy="8.5" r="1" />
+        </svg>
         Promotion
       </RouterLink>
       <div
@@ -214,7 +249,7 @@ onUnmounted(() => {
       >
         <button
           :class="[
-            'flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-muted transition-colors hover:text-ink focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[5px] focus-visible:outline-accent',
+            'flex min-h-11 cursor-pointer items-center gap-1.5 rounded-[0.2rem] border-0 bg-transparent px-2 text-muted transition-colors hover:bg-accent-soft hover:text-ink focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[5px] focus-visible:outline-accent',
             navType,
             isCategoryOpen ? 'text-ink' : '',
           ]"
@@ -222,6 +257,13 @@ onUnmounted(() => {
           :aria-expanded="isCategoryOpen"
           aria-haspopup="menu"
         >
+          <svg
+            class="h-4 w-4 fill-none stroke-current stroke-[1.8] [stroke-linecap:round] [stroke-linejoin:round]"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z" />
+          </svg>
           Category
           <svg
             :class="[
@@ -465,46 +507,73 @@ onUnmounted(() => {
   <RouterView />
 
   <footer
-    class="mt-auto border-t border-line px-[clamp(1.25rem,4vw,4.5rem)] py-7 max-md:px-5 max-md:py-10"
+    class="mt-auto border-t-[3px] border-accent bg-accent-soft/55 px-[clamp(1.25rem,4vw,4.5rem)] py-[clamp(2rem,4vw,3.5rem)] max-md:px-5"
   >
     <div
-      class="mx-auto grid max-w-[1200px] grid-cols-4 items-start gap-[clamp(1.25rem,2.5vw,2.5rem)] max-md:grid-cols-1"
+      class="mx-auto grid max-w-[1200px] grid-cols-1 items-start gap-x-[clamp(1.5rem,3vw,3.5rem)] gap-y-9 sm:grid-cols-2 xl:grid-cols-12"
     >
-      <div class="grid min-w-0 content-start gap-[0.8rem]">
+      <div class="grid min-w-0 content-start gap-4 xl:col-span-4">
         <img
           v-if="siteSettings.site_logo"
-          class="block h-auto max-h-16 max-w-48 object-contain object-left"
+          class="block h-auto max-h-14 max-w-52 object-contain object-left"
           :src="assetUrl(siteSettings.site_logo)"
           :alt="siteSettings.site_name || 'Store logo'"
         />
         <p
           v-if="siteSettings.site_description"
-          class="m-0 max-w-[30rem] text-[0.85rem] leading-[1.6] text-muted not-italic"
+          class="m-0 max-w-[32rem] text-[0.9rem] leading-[1.65] text-muted not-italic text-pretty"
         >
           {{ siteSettings.site_description }}
         </p>
       </div>
       <div
         v-if="siteSettings.site_address || siteSettings.site_email || siteSettings.site_phone"
-        class="grid min-w-0 content-start gap-[0.8rem]"
+        class="grid min-w-0 content-start gap-4 xl:col-span-3"
       >
-        <span class="text-base font-bold tracking-[0.1em] text-accent uppercase">Contact</span>
+        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">Contact</span>
         <address
-          class="m-0 grid max-w-[25rem] gap-[0.35rem] text-[0.85rem] leading-[1.6] text-muted not-italic"
+          class="m-0 grid max-w-[25rem] gap-3 text-[0.88rem] leading-[1.5] text-muted not-italic"
         >
-          <span v-if="siteSettings.site_address">{{ siteSettings.site_address }}</span>
+          <span v-if="siteSettings.site_address" class="flex items-start gap-2.5">
+            <svg
+              class="mt-[0.1rem] h-4 w-4 shrink-0 fill-none stroke-current stroke-[1.8] text-ink [stroke-linecap:round] [stroke-linejoin:round]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M20 10.5C20 16 12 21 12 21S4 16 4 10.5a8 8 0 1 1 16 0Z" />
+              <circle cx="12" cy="10.5" r="2.5" />
+            </svg>
+            <span>{{ siteSettings.site_address }}</span>
+          </span>
           <a
             v-if="siteSettings.site_email"
-            class="text-muted no-underline hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="inline-flex min-h-6 items-center gap-2.5 text-muted no-underline transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
             :href="`mailto:${siteSettings.site_email}`"
-            >{{ siteSettings.site_email }}</a
           >
+            <svg
+              class="h-4 w-4 shrink-0 fill-none stroke-current stroke-[1.8] text-ink [stroke-linecap:round] [stroke-linejoin:round]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="m4 7 8 6 8-6" />
+            </svg>
+            {{ siteSettings.site_email }}
+          </a>
           <a
             v-if="siteSettings.site_phone"
-            class="text-muted no-underline hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="inline-flex min-h-6 items-center gap-2.5 text-muted no-underline transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
             :href="`tel:${siteSettings.site_phone}`"
-            >{{ siteSettings.site_phone }}</a
           >
+            <svg
+              class="h-4 w-4 shrink-0 fill-none stroke-current stroke-[1.8] text-ink [stroke-linecap:round] [stroke-linejoin:round]"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M5 4h3l2 5-2 1.5c1.2 2.5 3 4.3 5.5 5.5L15 14l5 2v3c0 1.1-.9 2-2 2C10.3 21 3 13.7 3 6c0-1.1.9-2 2-2Z" />
+            </svg>
+            {{ siteSettings.site_phone }}
+          </a>
         </address>
       </div>
       <nav
@@ -516,14 +585,14 @@ onUnmounted(() => {
           siteSettings.site_youtube_url ||
           siteSettings.site_telegram_url
         "
-        class="grid min-w-0 content-start gap-[0.8rem]"
+        class="grid min-w-0 content-start gap-4 xl:col-span-3"
         aria-label="Social links"
       >
-        <span class="text-base font-bold tracking-[0.1em] text-accent uppercase">Follow</span>
-        <div class="flex flex-wrap gap-x-4 gap-y-2">
+        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">Follow</span>
+        <div class="flex flex-wrap gap-2">
           <a
             v-if="siteSettings.site_facebook_url"
-            class="social-label inline-flex h-11 w-auto items-center justify-start gap-[0.65rem] px-1 text-muted hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="social-label inline-flex min-h-11 items-center justify-start gap-[0.65rem] rounded-[0.2rem] bg-paper px-3 text-muted transition-[background-color,color,transform] duration-150 hover:bg-accent hover:text-white focus-visible:bg-accent focus-visible:text-white focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.96] motion-reduce:transition-none"
             :href="siteSettings.site_facebook_url"
             target="_blank"
             rel="noreferrer"
@@ -540,7 +609,7 @@ onUnmounted(() => {
           </a>
           <a
             v-if="siteSettings.site_twitter_url"
-            class="social-label inline-flex h-11 w-auto items-center justify-start gap-[0.65rem] px-1 text-muted hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="social-label inline-flex min-h-11 items-center justify-start gap-[0.65rem] rounded-[0.2rem] bg-paper px-3 text-muted transition-[background-color,color,transform] duration-150 hover:bg-accent hover:text-white focus-visible:bg-accent focus-visible:text-white focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.96] motion-reduce:transition-none"
             :href="siteSettings.site_twitter_url"
             target="_blank"
             rel="noreferrer"
@@ -559,7 +628,7 @@ onUnmounted(() => {
           </a>
           <a
             v-if="siteSettings.site_instagram_url"
-            class="social-label inline-flex h-11 w-auto items-center justify-start gap-[0.65rem] px-1 text-muted hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="social-label inline-flex min-h-11 items-center justify-start gap-[0.65rem] rounded-[0.2rem] bg-paper px-3 text-muted transition-[background-color,color,transform] duration-150 hover:bg-accent hover:text-white focus-visible:bg-accent focus-visible:text-white focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.96] motion-reduce:transition-none"
             :href="siteSettings.site_instagram_url"
             target="_blank"
             rel="noreferrer"
@@ -578,7 +647,7 @@ onUnmounted(() => {
           </a>
           <a
             v-if="siteSettings.site_linkedin_url"
-            class="social-label inline-flex h-11 w-auto items-center justify-start gap-[0.65rem] px-1 text-muted hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="social-label inline-flex min-h-11 items-center justify-start gap-[0.65rem] rounded-[0.2rem] bg-paper px-3 text-muted transition-[background-color,color,transform] duration-150 hover:bg-accent hover:text-white focus-visible:bg-accent focus-visible:text-white focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.96] motion-reduce:transition-none"
             :href="siteSettings.site_linkedin_url"
             target="_blank"
             rel="noreferrer"
@@ -597,7 +666,7 @@ onUnmounted(() => {
           </a>
           <a
             v-if="siteSettings.site_youtube_url"
-            class="social-label inline-flex h-11 w-auto items-center justify-start gap-[0.65rem] px-1 text-muted hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="social-label inline-flex min-h-11 items-center justify-start gap-[0.65rem] rounded-[0.2rem] bg-paper px-3 text-muted transition-[background-color,color,transform] duration-150 hover:bg-accent hover:text-white focus-visible:bg-accent focus-visible:text-white focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.96] motion-reduce:transition-none"
             :href="siteSettings.site_youtube_url"
             target="_blank"
             rel="noreferrer"
@@ -616,7 +685,7 @@ onUnmounted(() => {
           </a>
           <a
             v-if="siteSettings.site_telegram_url"
-            class="social-label inline-flex h-11 w-auto items-center justify-start gap-[0.65rem] px-1 text-muted hover:text-accent focus-visible:text-accent focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-4 focus-visible:outline-accent"
+            class="social-label inline-flex min-h-11 items-center justify-start gap-[0.65rem] rounded-[0.2rem] bg-paper px-3 text-muted transition-[background-color,color,transform] duration-150 hover:bg-accent hover:text-white focus-visible:bg-accent focus-visible:text-white focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.96] motion-reduce:transition-none"
             :href="siteSettings.site_telegram_url"
             target="_blank"
             rel="noreferrer"
@@ -635,13 +704,15 @@ onUnmounted(() => {
           </a>
         </div>
       </nav>
-      <div class="grid min-w-0 content-start gap-[0.8rem]">
-        <span class="text-base font-bold tracking-[0.1em] text-accent uppercase">We Accept</span>
-        <img
-          class="block h-14 w-28 object-contain object-left"
-          src="/payment-abakhqr.webp"
-          alt="Bakong payment"
-        />
+      <div class="grid min-w-0 content-start gap-4 xl:col-span-2">
+        <span class="text-[0.72rem] font-bold tracking-[0.12em] text-accent uppercase">We Accept</span>
+        <div class="flex h-16 w-32 items-center justify-center border border-line bg-paper p-2 shadow-[0_2px_8px_rgba(32,35,33,0.06)]">
+          <img
+            class="block h-full max-w-full object-contain"
+            src="/payment-abakhqr.webp"
+            alt="Bakong payment"
+          />
+        </div>
       </div>
     </div>
   </footer>
@@ -684,11 +755,20 @@ onUnmounted(() => {
           class="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-2 border-l-4 border-danger bg-[#fff0ec] p-3 text-[#7e271c]"
           role="alert"
         >
-          <svg class="mt-0.5 h-4 w-4 shrink-0 fill-none stroke-current stroke-[2]" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 8v5m0 4v.01M10.3 3.8 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z" />
+          <svg
+            class="mt-0.5 h-4 w-4 shrink-0 fill-none stroke-current stroke-[2]"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 8v5m0 4v.01M10.3 3.8 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"
+            />
           </svg>
           <p class="m-0 text-[0.72rem] leading-[1.4]">
-            Checkout is paused. Remove {{ unavailableItems.length }} unavailable item{{ unavailableItems.length === 1 ? '' : 's' }} to continue.
+            Checkout is paused. Remove {{ unavailableItems.length }} unavailable item{{
+              unavailableItems.length === 1 ? '' : 's'
+            }}
+            to continue.
           </p>
         </div>
         <div v-if="cart.length" class="scrollbar-none flex-1 overflow-y-auto">
@@ -712,9 +792,17 @@ onUnmounted(() => {
             <div class="flex flex-col gap-[0.3rem]">
               <div class="flex flex-wrap items-center gap-2">
                 <strong class="text-[1.1rem] font-semibold text-ink">{{ item.productName }}</strong>
-                <span v-if="item.unavailable" class="bg-danger px-2 py-1 text-[0.52rem] font-bold tracking-[0.08em] text-white uppercase">Unavailable</span>
+                <span
+                  v-if="item.unavailable"
+                  class="bg-danger px-2 py-1 text-[0.52rem] font-bold tracking-[0.08em] text-white uppercase"
+                  >Unavailable</span
+                >
               </div>
-              <p v-if="item.unavailable" class="m-0 text-[0.68rem] leading-[1.4] text-[#7e271c]" role="alert">
+              <p
+                v-if="item.unavailable"
+                class="m-0 text-[0.68rem] leading-[1.4] text-[#7e271c]"
+                role="alert"
+              >
                 {{ item.cartMessage || 'This item is no longer available.' }}
               </p>
               <label
@@ -743,10 +831,19 @@ onUnmounted(() => {
                 </select>
               </label>
               <div class="flex items-center gap-2 uppercase">
-                <span :class="item.unavailable ? 'text-muted line-through' : 'text-accent'">{{ formatPrice(item.price) }}</span>
-                <span v-if="!item.unavailable && item.originalPrice" class="text-muted line-through">{{ formatPrice(item.originalPrice) }}</span>
+                <span :class="item.unavailable ? 'text-muted line-through' : 'text-accent'">{{
+                  formatPrice(item.price)
+                }}</span>
+                <span
+                  v-if="!item.unavailable && item.originalPrice"
+                  class="text-muted line-through"
+                  >{{ formatPrice(item.originalPrice) }}</span
+                >
               </div>
-              <small v-if="!item.unavailable && item.cartMessage" class="text-[0.58rem] text-danger uppercase">
+              <small
+                v-if="!item.unavailable && item.cartMessage"
+                class="text-[0.58rem] text-danger uppercase"
+              >
                 {{ item.cartMessage }}
               </small>
               <div v-if="!item.unavailable" class="mt-[0.35rem] flex items-center gap-2">
@@ -842,5 +939,4 @@ onUnmounted(() => {
       </aside>
     </div>
   </Transition>
-
 </template>
