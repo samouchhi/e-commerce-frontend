@@ -15,15 +15,30 @@ const router = createRouter({
       component: HomeView,
     },
     {
-      path: '/products/:id',
+      path: '/products',
+      name: 'products',
+      component: () => import('../views/ProductsView.vue'),
+    },
+    {
+      path: '/products/:slug',
       name: 'product-detail',
       component: ProductDetailView,
     },
-    // {
-    //   path: '/cart',
-    //   name: 'cart',
-    //   component: CartView,
-    // },
+    {
+      path: '/promotion',
+      name: 'promotion',
+      component: () => import('../views/PromotionView.vue'),
+    },
+    {
+      path: '/categories',
+      name: 'categories',
+      component: () => import('../views/CategoryView.vue'),
+    },
+    {
+      path: '/cart',
+      name: 'cart',
+      component: CartView,
+    },
     {
       path: '/login',
       name: 'login',
@@ -33,6 +48,12 @@ const router = createRouter({
       path: '/checkout',
       name: 'checkout',
       component: CheckoutView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/orders',
+      name: 'orders',
+      component: () => import('../views/OrderView.vue'),
       meta: { requiresAuth: true },
     },
     {

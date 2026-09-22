@@ -5,20 +5,37 @@ import {
   getCart,
   mergeCartItem,
   removeFromCart,
+  resolveCart,
   updateCartItem,
   updateCartQuantity,
 } from '../services/cartService'
 import { getProducts } from '../services/productService'
 import { assetUrl } from '../services/api'
+import { t } from '../services/i18n'
+
+const placeholderClass =
+  'flex h-full items-center justify-center text-[0.7rem] text-muted uppercase'
 
 const cart = ref([])
 const products = ref([])
 const warnings = ref({})
+const itemPendingRemoval = ref(null)
 const refresh = () => (cart.value = getCart())
+const canCheckout = computed(() => cart.value.every((item) => !item.unavailable))
+const unavailableItems = computed(() => cart.value.filter((item) => item.unavailable))
+const unavailableSummary = computed(() => {
+  const count = unavailableItems.value.length
+  const key = count === 1 ? 'cart.oneItemNeedsRemoval' : 'cart.manyItemsNeedRemoval'
+
+  return t(key).replace('{count}', count)
+})
 const formatPrice = (price) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)
 const subtotal = computed(() =>
-  cart.value.reduce((total, item) => total + item.price * item.quantity, 0),
+  cart.value.reduce(
+    (total, item) => total + (item.unavailable ? 0 : item.price * item.quantity),
+    0,
+  ),
 )
 const productFor = (item) => products.value.find((product) => product.id === item.productId)
 const variantFor = (item) =>
@@ -31,11 +48,18 @@ const imageUrl = (item) => {
 }
 const setWarning = (variantId, message) =>
   (warnings.value = { ...warnings.value, [variantId]: message })
+const withStock = (key, stock) => t(key).replace('{stock}', stock)
+const requestRemoval = (item) => (itemPendingRemoval.value = item)
+const confirmRemoval = () => {
+  if (!itemPendingRemoval.value) return
+  removeFromCart(itemPendingRemoval.value.variantId)
+  itemPendingRemoval.value = null
+}
 
 const changeQuantity = (item, value) => {
   const stock = Number(variantFor(item)?.stock_qty ?? Infinity)
   if (Number(value) > stock) {
-    setWarning(item.variantId, `Only ${stock} available.`)
+    setWarning(item.variantId, withStock('cart.onlyAvailable', stock))
     return
   }
   if (updateCartQuantity(item.variantId, value, stock)) setWarning(item.variantId, '')
@@ -55,12 +79,12 @@ const changeVariant = (item, variantId) => {
         {
           variantId: variant.id,
           variantName: variant.name,
-          price: Number(variant.price),
+          price: Number(variant.discounted_price ?? variant.price),
         },
         stock,
       )
     ) {
-      setWarning(item.variantId, `Only ${stock} available for this variant.`)
+      setWarning(item.variantId, withStock('cart.variantOnlyAvailable', stock))
       return
     }
     refresh()
@@ -69,7 +93,7 @@ const changeVariant = (item, variantId) => {
   updateCartItem(item.variantId, {
     variantId: variant.id,
     variantName: variant.name,
-    price: Number(variant.price),
+    price: Number(variant.discounted_price ?? variant.price),
     quantity: Math.min(item.quantity, Number(variant.stock_qty)),
   })
   refresh()
@@ -79,10 +103,12 @@ const changeVariant = (item, variantId) => {
 onMounted(async () => {
   refresh()
   try {
+    await resolveCart()
+    refresh()
     products.value = await getProducts()
     cart.value.forEach((item) => {
       const stock = Number(variantFor(item)?.stock_qty ?? Infinity)
-      if (item.quantity > stock) setWarning(item.variantId, `Only ${stock} available.`)
+      if (item.quantity > stock) setWarning(item.variantId, withStock('cart.onlyAvailable', stock))
     })
   } catch {
     products.value = []
@@ -93,27 +119,77 @@ onUnmounted(() => window.removeEventListener('cart-updated', refresh))
 </script>
 
 <template>
-  <main class="cart-page">
-    <RouterLink to="/" class="back-link">← Continue shopping</RouterLink>
-    <h1>Your bag</h1>
-    <p v-if="!cart.length" class="status">Your bag is empty.</p>
-    <section v-else class="cart-layout">
-      <div class="cart-items">
-        <article v-for="item in cart" :key="item.variantId" class="cart-item">
-          <div class="cart-item__image-wrap">
+  <main class="mx-auto max-w-[1100px] px-[clamp(1.25rem,4vw,4.5rem)] pt-4 pb-10">
+    <RouterLink to="/" class="back-link">← {{ t('cart.continueShopping') }}</RouterLink>
+    <h1 class="text-[clamp(1.6rem,3vw,2.25rem)]">{{ t('cart.title') }}</h1>
+    <section
+      v-if="unavailableItems.length"
+      class="mt-6 grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-l-4 border-danger bg-[#fff0ec] p-4 text-[#7e271c]"
+      role="alert"
+    >
+      <svg
+        class="mt-0.5 h-5 w-5 shrink-0 fill-none stroke-current stroke-[2]"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          d="M12 8v5m0 4v.01M10.3 3.8 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"
+        />
+      </svg>
+      <div class="grid gap-1">
+        <strong class="text-[0.78rem] font-bold uppercase">{{ t('cart.checkoutPaused') }}</strong>
+        <p class="m-0 text-[0.85rem] leading-[1.45]">
+          {{ unavailableSummary }}
+        </p>
+      </div>
+    </section>
+    <p v-if="!cart.length" class="col-span-full py-8 text-[0.9rem] text-muted">
+      {{ t('cart.empty') }}
+    </p>
+    <section v-else class="grid grid-cols-[minmax(0,1fr)_280px] gap-8 max-md:grid-cols-1">
+      <div class="border-t border-line">
+        <article
+          v-for="item in cart"
+          :key="item.variantId"
+          :class="[
+            'grid grid-cols-[5rem_minmax(0,1fr)_auto_5rem_auto] items-center gap-4 border-b border-line py-5 max-md:grid-cols-[4rem_minmax(0,1fr)_auto]',
+            item.unavailable ? 'bg-[#fff9f7] px-3 max-md:px-2' : '',
+          ]"
+        >
+          <div class="aspect-square overflow-hidden bg-accent-soft max-md:row-span-2">
             <img
               v-if="imageUrl(item)"
               :src="imageUrl(item)"
               :alt="item.productName"
-              class="cart-item__image"
+              class="h-full w-full object-cover"
             />
-            <div v-else class="product-card__placeholder">No image</div>
+            <div v-else :class="placeholderClass">{{ t('cart.noImage') }}</div>
           </div>
-          <div class="cart-item__details">
-            <h2>{{ item.productName }}</h2>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="text-[1.3rem] font-semibold text-ink">{{ item.productName }}</h2>
+              <span
+                v-if="item.unavailable"
+                class="bg-danger px-2 py-1 text-[0.58rem] font-bold text-white uppercase"
+                >{{ t('cart.unavailable') }}</span
+              >
+            </div>
+            <p
+              v-if="item.unavailable"
+              class="mt-2 text-[0.78rem] leading-[1.4] text-[#7e271c]"
+              role="alert"
+            >
+              {{ t('cart.productUnavailable') }} {{ t('cart.removeToCheckout') }}
+            </p>
             <label
-              >Size
-              <select :value="item.variantId" @change="changeVariant(item, $event.target.value)">
+              v-if="!item.unavailable"
+              class="mt-3 flex flex-col gap-[0.35rem] text-[0.62rem] text-muted uppercase"
+              >{{ t('cart.size') }}
+              <select
+                class="max-w-max border border-line bg-paper p-[0.55rem] text-ink"
+                :value="item.variantId"
+                @change="changeVariant(item, $event.target.value)"
+              >
                 <option
                   v-for="variant in productFor(item)?.variants || [
                     { id: item.variantId, name: item.variantName },
@@ -122,31 +198,109 @@ onUnmounted(() => window.removeEventListener('cart-updated', refresh))
                   :value="variant.id"
                   :disabled="!variant.is_active || Number(variant.stock_qty) <= 0"
                 >
-                  {{ variant.name }}{{ Number(variant.stock_qty) <= 0 ? ' (out of stock)' : '' }}
+                  {{ variant.name
+                  }}{{ Number(variant.stock_qty) <= 0 ? ` (${t('cart.outOfStock')})` : '' }}
                 </option>
               </select>
             </label>
           </div>
-          <strong>{{ formatPrice(item.price) }}</strong>
+          <div class="flex items-center gap-2 max-md:col-start-3 max-md:row-start-1">
+            <strong
+              :class="[
+                'text-[0.85rem] font-bold',
+                item.unavailable ? 'text-muted line-through' : 'text-accent',
+              ]"
+              >{{ formatPrice(item.price) }}</strong
+            >
+            <span v-if="item.originalPrice" class="text-[0.72rem] text-muted line-through">{{
+              formatPrice(item.originalPrice)
+            }}</span>
+          </div>
           <input
-            class="quantity-input"
+            v-if="!item.unavailable"
+            class="w-20 border border-line p-[0.65rem] max-md:col-start-2 max-md:row-start-2"
             type="number"
             min="1"
             :max="variantFor(item)?.stock_qty"
             :value="item.quantity"
-            aria-label="Quantity"
+            :aria-label="t('cart.quantity')"
             @change="changeQuantity(item, $event.target.value)"
           />
-          <button class="remove-button" type="button" @click="removeFromCart(item.variantId)">
-            Remove
+          <button
+            :class="[
+              'text-[0.65rem] font-bold uppercase max-md:col-start-3 max-md:row-start-2',
+              item.unavailable
+                ? 'border-0 bg-danger px-3 py-2 text-white'
+                : 'cursor-pointer border-0 bg-transparent text-muted hover:text-accent',
+            ]"
+            type="button"
+            @click="requestRemoval(item)"
+          >
+            {{ t('cart.remove') }}
           </button>
-          <p v-if="warnings[item.variantId]" class="cart-warning">{{ warnings[item.variantId] }}</p>
+          <p
+            v-if="warnings[item.variantId]"
+            class="col-[2/-1] mt-[0.35rem] text-[0.7rem] text-danger uppercase"
+          >
+            {{ warnings[item.variantId] }}
+          </p>
         </article>
       </div>
-      <aside class="cart-summary">
-        <span>Subtotal</span><strong>{{ formatPrice(subtotal) }}</strong>
-        <RouterLink to="/checkout" class="checkout-button">Go to checkout</RouterLink>
+      <aside class="grid gap-4 self-start border-t-2 border-ink pt-4">
+        <span class="text-[0.7rem] text-muted uppercase">{{ t('cart.subtotal') }}</span
+        ><strong class="text-[1.1rem] font-bold text-ink">{{ formatPrice(subtotal) }}</strong>
+        <p v-if="unavailableItems.length" class="m-0 text-[0.7rem] leading-[1.4] text-muted">
+          {{ t('cart.unavailableExcluded') }}
+        </p>
+        <RouterLink
+          v-if="canCheckout"
+          to="/checkout"
+          class="bg-accent p-4 text-center text-[0.7rem] font-bold text-white uppercase no-underline hover:bg-accent-hover"
+          >{{ t('cart.goToCheckout') }}</RouterLink
+        >
+        <button
+          v-else
+          class="cursor-not-allowed bg-muted p-4 text-center text-[0.7rem] font-bold text-white uppercase"
+          type="button"
+          disabled
+        >
+          {{ t('cart.fixCart') }}
+        </button>
       </aside>
     </section>
+    <div
+      v-if="itemPendingRemoval"
+      class="fixed inset-0 z-40 grid place-items-center bg-black/45 p-5"
+      role="presentation"
+      @click.self="itemPendingRemoval = null"
+    >
+      <section
+        class="grid w-full max-w-sm gap-4 border border-line bg-paper p-5 shadow-[0_18px_40px_rgba(32,35,33,0.2)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="remove-item-title"
+      >
+        <h2 id="remove-item-title" class="m-0 text-[1.2rem] font-semibold text-ink">
+          {{ t('cart.removeTitle') }}
+        </h2>
+        <p class="m-0 text-[0.85rem] text-muted">{{ t('cart.removeDescription') }}</p>
+        <div class="flex justify-end gap-3">
+          <button
+            class="border border-line bg-paper px-4 py-2 text-[0.7rem] font-bold uppercase"
+            type="button"
+            @click="itemPendingRemoval = null"
+          >
+            {{ t('cart.cancel') }}
+          </button>
+          <button
+            class="border-0 bg-danger px-4 py-2 text-[0.7rem] font-bold text-white uppercase"
+            type="button"
+            @click="confirmRemoval"
+          >
+            {{ t('cart.remove') }}
+          </button>
+        </div>
+      </section>
+    </div>
   </main>
 </template>

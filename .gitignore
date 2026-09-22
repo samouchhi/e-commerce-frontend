@@ -9,6 +9,7 @@ lerna-debug.log*
 .env
 .env.*
 !.env.example
+!.env.production
 node_modules
 .DS_Store
 dist
@@ -39,3 +40,5 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+.env.production
+.env.production

@@ -1,3 +1,5 @@
+import api from './api'
+
 const CART_KEY = 'cart'
 
 const readCart = () => {
@@ -15,11 +17,58 @@ const saveCart = (cart) => {
 
 export const getCart = () => readCart()
 
+export const resolveCart = async () => {
+  const cart = readCart()
+  if (!cart.length) return { items: [], can_checkout: true, total: '0.00' }
+
+  const resolved = await api.request('/api/cart/resolve', {
+    method: 'POST',
+    body: JSON.stringify({
+      items: cart.map((item) => ({
+        product_variant_id: Number(item.variantId),
+        quantity: Number(item.quantity),
+      })),
+    }),
+  })
+  const itemsByVariantId = new Map(
+    resolved.items.map((item) => [item.product_variant_id, item]),
+  )
+
+  saveCart(
+    cart.map((item) => {
+      const current = itemsByVariantId.get(item.variantId)
+      if (!current) return item
+
+      const price = current.unit_price === undefined ? item.price : Number(current.unit_price)
+      const originalPrice = Number(current.original_unit_price)
+
+      return {
+        ...item,
+        productId: current.product_id ?? item.productId,
+        productName: current.name ?? item.productName,
+        variantName: current.variant_name ?? item.variantName,
+        price,
+        originalPrice: originalPrice > price ? originalPrice : null,
+        quantity: current.available ? current.quantity : item.quantity,
+        stockQty: current.stock_qty ?? 0,
+        unavailable: !current.available,
+        cartMessage: '',
+      }
+    }),
+  )
+
+  return resolved
+}
+
+export const clearCart = () => saveCart([])
+
 export const addToCart = (item) => {
   const cart = readCart()
   const existing = cart.find((cartItem) => cartItem.variantId === item.variantId)
-  if (existing) existing.quantity += 1
-  else cart.push({ ...item, quantity: 1 })
+  const quantity =
+    Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : 1
+  if (existing) existing.quantity += quantity
+  else cart.push({ ...item, quantity })
   saveCart(cart)
   window.dispatchEvent(new Event('cart-item-added'))
 }
