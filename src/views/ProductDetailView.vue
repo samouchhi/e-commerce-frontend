@@ -321,7 +321,7 @@ watch(() => route.params.slug, loadProduct)
           </button>
         </div>
 
-        <div class="mt-4" v-html="product.description"></div>
+        <div class="mt-4 [&_ul]:list-disc [&_ul]:pl-6" v-html="product.description"></div>
       </div>
     </section>
     <section

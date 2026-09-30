@@ -17,6 +17,7 @@ const request = async (path, options = {}) => {
       ...options.headers,
     },
   })
+  if (response.status === 204) return null
   const contentType = response.headers.get('content-type') || ''
   const responseBody = contentType.includes('application/json')
     ? await response.json()

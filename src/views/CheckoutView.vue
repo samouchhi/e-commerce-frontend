@@ -14,6 +14,24 @@ import {
 import { createOrder, generateOrderPayment, verifyOrderPayment } from '../services/orderService'
 import { getProducts } from '../services/productService'
 import { t } from '../services/i18n'
+import { Button } from '../components/ui/button.js'
+import { Badge } from '../components/ui/badge.js'
+import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group.js'
+import { getAddresses, deleteAddress } from '../services/addressService'
+import {
+  CheckoutFeedback,
+  Skeleton,
+  Empty,
+  EmptyTitle,
+  EmptyDescription,
+} from '../components/ui/feedback.js'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+} from '../components/ui/alert-dialog.js'
 
 const checkoutPageClass = 'mx-auto max-w-[1100px] px-[clamp(1.25rem,4vw,4.5rem)] pt-4 pb-10'
 const sectionLabelClass = 'mb-2 text-base font-bold text-ink uppercase text-[1.125rem]'
@@ -39,6 +57,10 @@ const refreshCart = () => (cart.value = getCart())
 const canCheckout = ref(true)
 const unavailableItems = computed(() => cart.value.filter((item) => item.unavailable))
 const products = ref([])
+const productsError = ref('')
+const isLoadingProducts = ref(false)
+const cartError = ref('')
+const isRefreshingCart = ref(false)
 const logistics = ref([])
 const selectedLogisticId = ref('')
 const isLoadingLogistics = ref(true)
@@ -121,6 +143,89 @@ const paymentQrImage = ref('')
 const paymentWarning = ref('')
 const order = ref(null)
 const form = ref({ name: '', phone: '', address: '', city: '', note: '' })
+const addresses = ref([])
+const selectedAddressId = ref('new')
+const newAddressDraft = ref({ ...form.value })
+const isLoadingAddresses = ref(true)
+const addressesError = ref('')
+const addressToDelete = ref(null)
+const isDeletingAddress = ref(false)
+const deleteAddressError = ref('')
+let deleteFocusId
+const requestDeleteAddress = (address) => {
+  deleteFocusId = `delete-address-${address.id}`
+  addressToDelete.value = address
+  deleteAddressError.value = ''
+}
+const restoreAddressFocus = (event) => {
+  event.preventDefault()
+  const target =
+    document.getElementById(deleteFocusId) ||
+    document.getElementById(`saved-address-${selectedAddressId.value}`) ||
+    document.querySelector('input[autocomplete="name"]')
+  target?.focus()
+}
+
+const confirmDeleteAddress = async () => {
+  if (!addressToDelete.value || isDeletingAddress.value) return
+  const id = addressToDelete.value.id
+  isDeletingAddress.value = true
+  deleteAddressError.value = ''
+  try {
+    await deleteAddress(id)
+    if (checkoutUnmounted) return
+    addresses.value = addresses.value.filter((address) => address.id !== id)
+    if (selectedAddressId.value === String(id))
+      selectAddress(addresses.value.length ? String(addresses.value[0].id) : 'new')
+    addressToDelete.value = null
+  } catch {
+    deleteAddressError.value = t('checkout.deleteAddressError')
+  } finally {
+    isDeletingAddress.value = false
+  }
+}
+
+const closeDeleteDialog = (open) => {
+  if (!open && !isDeletingAddress.value) {
+    addressToDelete.value = null
+    deleteAddressError.value = ''
+  }
+}
+
+const selectAddress = (value) => {
+  const address = addresses.value.find((item) => String(item.id) === String(value))
+  if (value !== 'new' && !address) return
+  if (selectedAddressId.value === 'new') newAddressDraft.value = { ...form.value }
+  selectedAddressId.value = String(value)
+  form.value =
+    value === 'new'
+      ? { ...newAddressDraft.value }
+      : {
+          name: address.name || '',
+          phone: address.phone || '',
+          address: address.address || '',
+          city: address.city || '',
+          note: address.note || '',
+        }
+}
+
+const loadAddresses = async () => {
+  isLoadingAddresses.value = true
+  addressesError.value = ''
+  try {
+    const result = await getAddresses()
+    if (checkoutUnmounted) return
+    addresses.value = result
+    selectAddress(result.length ? String(result[0].id) : 'new')
+  } catch {
+    if (checkoutUnmounted) return
+    selectAddress('new')
+    addresses.value = []
+    addressesError.value = t('checkout.addressLoadError')
+  } finally {
+    isLoadingAddresses.value = false
+  }
+}
 const abaKhqrLogo = '/payment-abakhqr.webp'
 const cambodiaProvinces = [
   'Banteay Meanchey',
@@ -223,8 +328,32 @@ const loadLogistics = async () => {
   }
 }
 
-const apiError = (error, fallback) =>
-  error.details?.message || error.details?.error || error.message || fallback
+const apiError = (_error, fallback) => fallback
+
+const loadProducts = async () => {
+  isLoadingProducts.value = true
+  productsError.value = ''
+  try {
+    products.value = await getProducts()
+  } catch {
+    productsError.value = t('checkout.productsLoadError')
+  } finally {
+    isLoadingProducts.value = false
+  }
+}
+
+const refreshCheckoutCart = async () => {
+  isRefreshingCart.value = true
+  cartError.value = ''
+  try {
+    await resolveCurrentCart()
+  } catch {
+    canCheckout.value = false
+    cartError.value = t('checkout.cartRefreshError')
+  } finally {
+    isRefreshingCart.value = false
+  }
+}
 
 const orderIdFrom = (payload) =>
   payload?.id || payload?.order_id || payload?.data?.id || payload?.data?.order_id
@@ -257,14 +386,19 @@ const resolveCurrentCart = async () => {
 const submitOrder = async () => {
   try {
     await resolveCurrentCart()
+    cartError.value = ''
   } catch (error) {
-    errorMessage.value = apiError(error, t('checkout.cartRefreshError'))
+    canCheckout.value = false
+    cartError.value = t('checkout.cartRefreshError')
     return
   }
   if (
     !cart.value.length ||
     !canCheckout.value ||
     isSubmitting.value ||
+    isLoadingAddresses.value ||
+    isDeletingAddress.value ||
+    isRefreshingCart.value ||
     isLoadingLogistics.value ||
     !selectedLogistic.value
   )
@@ -394,17 +528,7 @@ const checkPayment = async () => {
 onMounted(async () => {
   window.addEventListener('cart-updated', refreshCart)
   window.addEventListener('storage', refreshCart)
-  try {
-    await resolveCurrentCart()
-  } catch {
-    errorMessage.value = t('checkout.cartRefreshError')
-  }
-  try {
-    products.value = await getProducts()
-  } catch {
-    products.value = []
-  }
-  await loadLogistics()
+  await Promise.all([refreshCheckoutCart(), loadProducts(), loadLogistics(), loadAddresses()])
 })
 
 onUnmounted(() => {
@@ -442,9 +566,10 @@ onUnmounted(() => {
           class="relative max-h-[calc(100vh-2.5rem)] w-full max-w-[460px] overflow-y-auto rounded-[18px] bg-white p-[24px] font-[Arial,sans-serif] text-[#314865] shadow-[0_1.5rem_4rem_rgb(0_0_0/25%)] max-xs:p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="payment-modal-title"
+          :aria-labelledby="paymentCompleted ? 'order-completed-title' : 'payment-modal-title'"
+          :aria-describedby="paymentCompleted ? 'order-completed-description' : undefined"
         >
-          <header class="flex items-center gap-[14px] max-xs:gap-2">
+          <header v-if="!paymentCompleted" class="flex items-center gap-[14px] max-xs:gap-2">
             <button
               class="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border-0 bg-[#f0f1f2] p-[10px] text-[#5c6470] focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-[3px] focus-visible:outline-aba"
               type="button"
@@ -484,36 +609,84 @@ onUnmounted(() => {
             <div
               v-if="paymentCompleted"
               key="complete"
-              class="px-0 pt-8 pb-4 text-center"
+              class="relative flex flex-col items-center gap-5 px-2 py-6 text-center text-ink max-xs:px-0"
               role="status"
             >
+              <button
+                type="button"
+                class="absolute -top-2 -right-2 grid size-9 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                :aria-label="t('checkout.closeDialog')"
+                @click="closePaymentModal"
+              >
+                <svg
+                  class="size-4 fill-none stroke-current stroke-2"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="m6 6 12 12M18 6 6 18" />
+                </svg>
+              </button>
               <div
-                class="mx-auto mb-7 grid h-22 w-22 place-items-center rounded-full bg-accent-soft text-ink shadow-[0_0_0_10px_#fafafa]"
+                class="grid size-20 place-items-center rounded-full bg-success-soft text-success ring-8 ring-success-soft/50"
                 aria-hidden="true"
               >
                 <svg
-                  class="h-12 w-12 fill-none stroke-current stroke-[3] [stroke-linecap:round] [stroke-linejoin:round]"
+                  class="size-10 fill-none stroke-current stroke-[3] [stroke-linecap:round] [stroke-linejoin:round]"
                   viewBox="0 0 48 48"
                 >
                   <path d="m13 24 8 8 15-16" />
                 </svg>
               </div>
-              <p class="eyebrow">{{ t('checkout.paymentReceived') }}</p>
-              <h2
-                class="my-4 text-[clamp(1.4rem,2.6vw,2rem)] leading-[1.15] font-semibold text-ink"
-              >
-                {{ t('checkout.orderCompleted') }}
-              </h2>
-              <p class="leading-[1.6] text-muted">
-                {{ t('checkout.paymentThanks') }}
-              </p>
-              <div class="mx-auto mt-5 grid w-full max-w-[280px] gap-3">
-                <RouterLink
-                  to="/"
-                  class="block w-full cursor-pointer border border-solid border-transparent bg-accent p-4 text-center text-[0.7rem] font-bold text-white uppercase no-underline hover:bg-accent-hover"
-                  @click="closePaymentModal"
-                  >{{ t('checkout.continueShopping') }}</RouterLink
+              <div class="flex flex-col items-center gap-3">
+                <Badge variant="success">{{ t('checkout.paymentReceived') }}</Badge>
+                <h2
+                  id="order-completed-title"
+                  class="m-0 text-[28px] leading-tight font-semibold tracking-tight max-xs:text-2xl"
                 >
+                  {{ t('checkout.orderCompleted') }}
+                </h2>
+                <p
+                  id="order-completed-description"
+                  class="m-0 max-w-[320px] text-sm leading-relaxed text-muted"
+                >
+                  {{ t('checkout.paymentConfirmedThanks') }}
+                </p>
+              </div>
+              <dl
+                class="m-0 grid w-full gap-3 rounded-xl border border-line bg-accent-soft/50 p-4 text-sm"
+              >
+                <div class="flex items-start justify-between gap-4">
+                  <dt class="text-muted">{{ t('checkout.orderNumber') }}</dt>
+                  <dd class="m-0 min-w-0 text-right font-semibold wrap-anywhere">
+                    {{ order?.order_number || `#${orderIdFrom(order)}` }}
+                  </dd>
+                </div>
+                <div class="flex items-center justify-between gap-4">
+                  <dt class="text-muted">{{ t('checkout.amountPaid') }}</dt>
+                  <dd class="m-0 text-base font-semibold tabular-nums">
+                    {{ formatPrice(paymentDetails?.amount ?? order?.total_amount ?? total) }}
+                  </dd>
+                </div>
+              </dl>
+              <div class="grid w-full gap-2">
+                <Button as-child size="lg">
+                  <RouterLink to="/orders" @click="closePaymentModal">
+                    {{ t('checkout.viewOrder') }}
+                    <svg
+                      data-icon="inline-end"
+                      class="fill-none stroke-current stroke-2"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="M5 12h14m-6-6 6 6-6 6" />
+                    </svg>
+                  </RouterLink>
+                </Button>
+                <Button as-child variant="outline" size="lg">
+                  <RouterLink to="/" @click="closePaymentModal">{{
+                    t('checkout.continueShopping')
+                  }}</RouterLink>
+                </Button>
               </div>
             </div>
             <div v-else key="scan" class="pt-4 text-center">
@@ -572,10 +745,7 @@ onUnmounted(() => {
                 role="status"
                 :aria-label="t('checkout.preparingQr')"
               >
-                <span
-                  class="h-9 w-9 animate-qr rounded-full border-4 border-solid border-[#e8edef] border-t-aba motion-reduce:animate-none"
-                  aria-hidden="true"
-                ></span>
+                <Skeleton class="size-60" />
               </div>
               <p
                 v-if="paymentDetails && !paymentExpired"
@@ -585,36 +755,25 @@ onUnmounted(() => {
               >
                 {{ paymentStatusMessage }}
               </p>
-              <Transition name="payment-step">
-                <div
-                  v-if="paymentWarning || errorMessage"
-                  class="mt-5 flex gap-3 rounded-lg border border-[#d4d4d4] bg-[#f4f4f4] p-4 text-left text-[0.8rem] leading-[1.5] text-[#111111]"
-                  :class="{ 'border-[#e5b4a8] bg-[#fff0ec] text-[#913c29]': errorMessage }"
-                  role="alert"
-                >
-                  <svg
-                    class="h-6 w-6 flex-[0_0_24px] fill-none stroke-current stroke-[1.6] [stroke-linecap:round] [stroke-linejoin:round]"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 3 2 21h20L12 3Z" />
-                    <path d="M12 9v5m0 3v1" />
-                  </svg>
-                  <div>
-                    <strong>{{
-                      errorMessage
-                        ? t('checkout.paymentUnavailable')
-                        : paymentExpired
-                          ? t('checkout.qrExpired')
-                          : t('checkout.paymentNotReceived')
-                    }}</strong>
-                    <p class="mt-[0.4rem]">{{ errorMessage || paymentWarning }}</p>
-                    <p v-if="!errorMessage && !paymentExpired" class="mt-[0.4rem]">
-                      {{ t('checkout.finishPaying') }}
-                    </p>
-                  </div>
-                </div>
-              </Transition>
+              <CheckoutFeedback
+                v-if="paymentWarning || errorMessage"
+                class="mt-5"
+                :title="
+                  errorMessage
+                    ? t('checkout.paymentUnavailable')
+                    : paymentExpired
+                      ? t('checkout.qrExpired')
+                      : t('checkout.paymentNotReceived')
+                "
+                :description="errorMessage || paymentWarning"
+                :action="
+                  paymentDetails && !paymentExpired
+                    ? t('checkout.checkPaymentAgain')
+                    : t('checkout.backToCheckout')
+                "
+                :busy="isVerifying"
+                @retry="paymentDetails && !paymentExpired ? checkPayment() : closePaymentModal()"
+              />
               <div class="mx-auto mt-5 grid w-full max-w-[280px] gap-3">
                 <a
                   v-if="canOpenAbaApp"
@@ -638,108 +797,188 @@ onUnmounted(() => {
     </Teleport>
 
     <form
-      v-if="!isSubmitted"
+      :inert="isSubmitted"
       class="mt-6 grid grid-cols-[minmax(0,1fr)_minmax(320px,360px)] items-start gap-[clamp(1.5rem,3vw,2.5rem)] max-md:mt-8 max-md:grid-cols-1"
       @submit.prevent="submitOrder"
     >
       <div class="grid gap-8">
         <section class="grid gap-4 border-t-2 border-ink pt-4">
-          <p :class="sectionLabelClass">{{ t('checkout.contactInfo') }}</p>
-
-          <label :class="fieldLabelClass">
-            <span :class="fieldControlClass">
-              <svg :class="fieldIconClass" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="8" r="3.5" />
-                <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
-              </svg>
-              <input
-                :placeholder="t('checkout.name')"
-                v-model.trim="form.name"
-                required
-                type="text"
-                autocomplete="name"
-                :class="controlClass"
-              />
-            </span>
-          </label>
-          <label :class="fieldLabelClass">
-            <span :class="fieldControlClass">
-              <svg :class="fieldIconClass" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M7 4h3l1.2 4-2.1 1.7a13 13 0 0 0 5.2 5.2l1.7-2.1L20 14v3c0 1.7-1.3 3-3 3C9.8 20 4 14.2 4 7c0-1.7 1.3-3 3-3Z"
+          <p :class="sectionLabelClass">{{ t('checkout.deliveryAddress') }}</p>
+          <div
+            v-if="isLoadingAddresses"
+            class="grid gap-3"
+            role="status"
+            :aria-label="t('checkout.loadingAddresses')"
+          >
+            <Skeleton class="h-24 w-full" /><Skeleton class="h-12 w-full" />
+          </div>
+          <CheckoutFeedback
+            v-else-if="addressesError"
+            :title="t('checkout.addressLoadTitle')"
+            :description="addressesError"
+            :action="t('checkout.retryAddresses')"
+            @retry="loadAddresses"
+          />
+          <RadioGroup
+            v-if="addresses.length"
+            :model-value="selectedAddressId"
+            :disabled="isLoadingAddresses || isDeletingAddress"
+            :aria-label="t('checkout.deliveryAddress')"
+            @update:model-value="selectAddress"
+          >
+            <div
+              v-for="address in addresses"
+              :key="address.id"
+              class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-4 transition-colors has-[[data-state=checked]]:border-ink has-[[data-state=checked]]:bg-accent-soft"
+            >
+              <label
+                :for="`saved-address-${address.id}`"
+                class="flex min-w-0 flex-1 cursor-pointer items-start gap-3"
+              >
+                <RadioGroupItem
+                  :id="`saved-address-${address.id}`"
+                  :value="String(address.id)"
+                  class="mt-1"
                 />
-              </svg>
-              <span
-                class="border-r border-line pr-[0.7rem] text-base font-bold whitespace-nowrap text-accent"
-                aria-label="Cambodia country code"
-                >+855</span
+                <span class="grid min-w-0 gap-1 text-sm wrap-anywhere">
+                  <strong class="font-semibold text-ink">{{ address.name }}</strong>
+                  <span class="text-muted">{{ address.phone }}</span>
+                  <span class="text-ink">{{ address.address }}, {{ address.city }}</span>
+                </span>
+              </label>
+              <Button
+                :id="`delete-address-${address.id}`"
+                type="button"
+                variant="ghost"
+                size="icon"
+                :aria-label="t('checkout.deleteAddress')"
+                :disabled="isDeletingAddress || isLoadingAddresses"
+                @click="requestDeleteAddress(address)"
               >
-              <input
-                v-model.trim="form.phone"
+                <svg
+                  class="fill-none stroke-current stroke-[1.8]"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6m4-6v6" />
+                </svg>
+              </Button>
+            </div>
+            <label
+              for="new-delivery-address"
+              class="flex cursor-pointer items-center gap-3 rounded-lg border border-line p-4 transition-colors has-[[data-state=checked]]:border-ink has-[[data-state=checked]]:bg-accent-soft"
+            >
+              <RadioGroupItem id="new-delivery-address" value="new" />
+              <span class="text-sm font-semibold text-ink">{{ t('checkout.newAddress') }}</span>
+            </label>
+          </RadioGroup>
+          <fieldset
+            v-show="selectedAddressId === 'new'"
+            :disabled="selectedAddressId !== 'new' || isLoadingAddresses"
+            class="m-0 grid min-w-0 gap-4 border-0 p-0"
+          >
+            <legend class="sr-only">{{ t('checkout.newAddress') }}</legend>
+            <label :class="fieldLabelClass">
+              <span :class="fieldControlClass">
+                <svg :class="fieldIconClass" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="8" r="3.5" />
+                  <path d="M5 20c.8-3.2 3.2-5 7-5s6.2 1.8 7 5" />
+                </svg>
+                <input
+                  :placeholder="t('checkout.name')"
+                  v-model.trim="form.name"
+                  required
+                  type="text"
+                  autocomplete="name"
+                  :class="controlClass"
+                />
+              </span>
+            </label>
+            <label :class="fieldLabelClass">
+              <span :class="fieldControlClass">
+                <svg :class="fieldIconClass" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M7 4h3l1.2 4-2.1 1.7a13 13 0 0 0 5.2 5.2l1.7-2.1L20 14v3c0 1.7-1.3 3-3 3C9.8 20 4 14.2 4 7c0-1.7 1.3-3 3-3Z"
+                  />
+                </svg>
+                <span
+                  class="border-r border-line pr-[0.7rem] text-base font-bold whitespace-nowrap text-accent"
+                  aria-label="Cambodia country code"
+                  >+855</span
+                >
+                <input
+                  v-model.trim="form.phone"
+                  required
+                  type="tel"
+                  inputmode="tel"
+                  autocomplete="tel-national"
+                  :placeholder="t('checkout.phone')"
+                  pattern="[0-9][0-9 ]{7,11}"
+                  :title="t('checkout.phoneTitle')"
+                  :class="controlClass"
+                />
+              </span>
+            </label>
+            <label :class="fieldLabelClass">
+              {{ t('checkout.cityProvince') }}
+              <span :class="fieldControlClass">
+                <svg :class="fieldIconClass" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z" />
+                  <circle cx="12" cy="10" r="2.2" />
+                </svg>
+                <select
+                  v-model="form.city"
+                  required
+                  autocomplete="address-level1"
+                  :class="[controlClass, 'cursor-pointer max-w-full']"
+                >
+                  <option disabled value="">{{ t('checkout.selectProvince') }}</option>
+                  <option v-for="province in cambodiaProvinces" :key="province" :value="province">
+                    {{ province }}
+                  </option>
+                </select>
+              </span>
+            </label>
+            <label :class="fieldLabelClass">
+              {{ t('checkout.address') }}
+              <textarea
+                v-model.trim="form.address"
                 required
-                type="tel"
-                inputmode="tel"
-                autocomplete="tel-national"
-                :placeholder="t('checkout.phone')"
-                pattern="[0-9][0-9 ]{7,11}"
-                :title="t('checkout.phoneTitle')"
-                :class="controlClass"
-              />
-            </span>
-          </label>
-          <label :class="fieldLabelClass">
-            {{ t('checkout.cityProvince') }}
-            <span :class="fieldControlClass">
-              <svg :class="fieldIconClass" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z" />
-                <circle cx="12" cy="10" r="2.2" />
-              </svg>
-              <select
-                v-model="form.city"
-                required
-                autocomplete="address-level1"
-                :class="[controlClass, 'cursor-pointer max-w-full']"
-              >
-                <option disabled value="">{{ t('checkout.selectProvince') }}</option>
-                <option v-for="province in cambodiaProvinces" :key="province" :value="province">
-                  {{ province }}
-                </option>
-              </select>
-            </span>
-          </label>
-          <label :class="fieldLabelClass">
-            {{ t('checkout.address') }}
-            <textarea
-              v-model.trim="form.address"
-              autocomplete="street-address"
-              rows="2"
-              :placeholder="t('checkout.addressPlaceholder')"
-              :class="textareaClass"
-            ></textarea>
-          </label>
-          <label :class="fieldLabelClass">
-            {{ t('checkout.deliveryNote') }}
-            <textarea
-              v-model.trim="form.note"
-              rows="2"
-              :placeholder="t('checkout.notePlaceholder')"
-              :class="textareaClass"
-            ></textarea>
-          </label>
+                autocomplete="street-address"
+                rows="2"
+                :placeholder="t('checkout.addressPlaceholder')"
+                :class="textareaClass"
+              ></textarea>
+            </label>
+            <label :class="fieldLabelClass">
+              {{ t('checkout.deliveryNote') }}
+              <textarea
+                v-model.trim="form.note"
+                rows="2"
+                :placeholder="t('checkout.notePlaceholder')"
+                :class="textareaClass"
+              ></textarea>
+            </label>
+          </fieldset>
         </section>
 
         <section class="grid gap-4 border-t-2 border-ink pt-4">
           <p :class="sectionLabelClass">{{ t('checkout.selectDelivery') }}</p>
-          <p
+          <div
             v-if="isLoadingLogistics"
-            class="col-span-full py-8 text-[0.9rem] text-muted"
+            class="grid gap-3"
             role="status"
+            :aria-label="t('checkout.loadingDelivery')"
           >
-            {{ t('checkout.loadingDelivery') }}
-          </p>
-          <p v-else-if="logisticsError" class="col-span-full py-8 text-[0.9rem] text-danger">
-            {{ logisticsError }}
-          </p>
+            <Skeleton class="h-20 w-full" /><Skeleton class="h-20 w-full" />
+          </div>
+          <CheckoutFeedback
+            v-else-if="logisticsError"
+            :title="t('checkout.deliveryLoadTitle')"
+            :description="logisticsError"
+            :action="t('checkout.retryAddresses')"
+            @retry="loadLogistics"
+          />
           <label v-for="logistic in logistics" v-else :key="logistic.id" :class="optionClass">
             <input
               v-model="selectedLogisticId"
@@ -768,12 +1007,13 @@ onUnmounted(() => {
               formatPrice(logistic.price)
             }}</b>
           </label>
-          <p
-            v-if="!isLoadingLogistics && !logisticsError && !logistics.length"
-            class="col-span-full py-8 text-[0.9rem] text-muted"
-          >
-            {{ t('checkout.noDelivery') }}
-          </p>
+          <Empty v-if="!isLoadingLogistics && !logisticsError && !logistics.length">
+            <EmptyTitle>{{ t('checkout.noDeliveryTitle') }}</EmptyTitle>
+            <EmptyDescription>{{ t('checkout.noDelivery') }}</EmptyDescription>
+            <Button type="button" variant="outline" size="sm" @click="loadLogistics">{{
+              t('checkout.retryAddresses')
+            }}</Button>
+          </Empty>
         </section>
 
         <section class="grid gap-4 border-t-2 border-ink pt-4">
@@ -795,31 +1035,35 @@ onUnmounted(() => {
         <p class="m-0 text-[1rem] font-bold text-muted uppercase">
           {{ t('checkout.orderSummary') }}
         </p>
-        <section
+        <CheckoutFeedback
+          v-if="cartError"
+          :title="t('checkout.cartLoadTitle')"
+          :description="cartError"
+          :action="t('checkout.retryAddresses')"
+          :busy="isRefreshingCart"
+          @retry="refreshCheckoutCart"
+        />
+        <CheckoutFeedback
+          v-if="productsError"
+          :title="t('checkout.productsLoadTitle')"
+          :description="productsError"
+          :action="t('checkout.retryAddresses')"
+          :busy="isLoadingProducts"
+          @retry="loadProducts"
+        />
+        <CheckoutFeedback
           v-if="unavailableItems.length"
-          class="grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-l-4 border-danger bg-[#fff0ec] p-4 text-[#7e271c]"
-          role="alert"
-        >
-          <svg
-            class="mt-0.5 h-5 w-5 shrink-0 fill-none stroke-current stroke-[2]"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              d="M12 8v5m0 4v.01M10.3 3.8 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"
-            />
-          </svg>
-          <div class="grid gap-1">
-            <strong class="text-[0.72rem] font-bold uppercase">{{
-              t('checkout.checkoutPaused')
-            }}</strong>
-            <p class="m-0 text-[0.8rem] leading-[1.45]">{{ t('checkout.fixCart') }}</p>
-          </div>
-        </section>
+          :title="t('checkout.checkoutPaused')"
+          :description="t('checkout.fixCart')"
+        />
         <div class="grid gap-[1.15rem] border-b border-line pb-5">
-          <p v-if="!cart.length" class="m-0 text-[0.95rem] text-muted">
-            {{ t('checkout.cartEmpty') }}
-          </p>
+          <Empty v-if="!cart.length"
+            ><EmptyTitle>{{ t('checkout.cartEmpty') }}</EmptyTitle
+            ><EmptyDescription>{{ t('checkout.cartEmptyHelp') }}</EmptyDescription
+            ><Button as-child variant="outline"
+              ><RouterLink to="/products">{{ t('checkout.continueShopping') }}</RouterLink></Button
+            ></Empty
+          >
           <article
             v-for="item in cart"
             :key="item.variantId"
@@ -938,14 +1182,23 @@ onUnmounted(() => {
           <span :class="summaryLabelClass">{{ t('checkout.total') }}</span
           ><strong class="text-base font-bold text-red-500">{{ formatPrice(total) }}</strong>
         </div>
-        <p v-if="errorMessage" class="col-span-full py-8 text-[0.9rem] text-danger" role="alert">
-          {{ errorMessage }}
-        </p>
+        <CheckoutFeedback
+          v-if="errorMessage && !isSubmitted"
+          :title="t('checkout.orderErrorTitle')"
+          :description="errorMessage"
+        />
         <button
           :class="checkoutButtonClass"
           type="submit"
           :disabled="
-            !cart.length || !canCheckout || isSubmitting || isLoadingLogistics || !selectedLogistic
+            !cart.length ||
+            !canCheckout ||
+            isSubmitting ||
+            isLoadingLogistics ||
+            isLoadingAddresses ||
+            isDeletingAddress ||
+            isRefreshingCart ||
+            !selectedLogistic
           "
         >
           {{
@@ -958,5 +1211,44 @@ onUnmounted(() => {
         </button>
       </aside>
     </form>
+    <AlertDialog :open="Boolean(addressToDelete)" @update:open="closeDeleteDialog">
+      <AlertDialogContent
+        @escape-key-down="isDeletingAddress && $event.preventDefault()"
+        @close-auto-focus="restoreAddressFocus"
+      >
+        <AlertDialogTitle class="text-lg font-semibold">{{
+          t('checkout.deleteAddressTitle')
+        }}</AlertDialogTitle>
+        <AlertDialogDescription class="text-sm leading-relaxed text-muted">{{
+          t('checkout.deleteAddressDescription')
+        }}</AlertDialogDescription>
+        <p
+          class="m-0 rounded-lg border border-line bg-accent-soft p-3 text-sm text-ink wrap-anywhere"
+        >
+          {{ addressToDelete?.address }}, {{ addressToDelete?.city }}
+        </p>
+        <CheckoutFeedback
+          v-if="deleteAddressError"
+          :title="t('checkout.deleteAddressErrorTitle')"
+          :description="deleteAddressError"
+        />
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <AlertDialogCancel as-child
+            ><Button type="button" variant="outline" :disabled="isDeletingAddress">{{
+              t('checkout.cancel')
+            }}</Button></AlertDialogCancel
+          >
+          <Button
+            type="button"
+            variant="destructive"
+            :disabled="isDeletingAddress"
+            @click="confirmDeleteAddress"
+            >{{
+              isDeletingAddress ? t('checkout.deletingAddress') : t('checkout.deleteAddress')
+            }}</Button
+          >
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
   </main>
 </template>
