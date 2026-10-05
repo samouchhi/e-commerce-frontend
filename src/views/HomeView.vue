@@ -3,28 +3,19 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import BannerCarousel from '../components/home/BannerCarousel.vue'
 import ProductList from '../components/product/ProductList.vue'
+import ProductGridSkeleton from '../components/product/ProductGridSkeleton.vue'
+import PromotionHeading from '../components/product/PromotionHeading.vue'
+import { Button } from '../components/ui/button.js'
+import { Alert, AlertTitle, Empty, EmptyTitle } from '../components/ui/feedback.js'
 import { getBanners } from '../services/bannerService'
 import { getProducts } from '../services/productService'
-import { formatExpiry, groupPromotions, isOnPromotion } from '../utils/pricing'
+import { groupPromotions, isOnPromotion } from '../utils/pricing'
 import { t } from '../services/i18n'
-
-const sectionClass =
-  'mx-auto max-w-[1200px] px-[clamp(1.25rem,4vw,4.5rem)] pt-[clamp(1.25rem,2.5vw,2rem)] last:pb-[clamp(1.5rem,3vw,2.5rem)]'
-const sectionHeadClass =
-  'mb-[clamp(0.8rem,1.6vw,1.15rem)] flex items-center justify-between gap-4 border-b border-line pb-[0.55rem]'
-const sectionTitleClass =
-  'm-0 text-[clamp(1.05rem,2vw,1.4rem)] leading-[1.2] font-semibold text-ink'
-const sectionLinkClass =
-  'inline-flex min-h-7 items-center px-2 text-[1rem] font-bold text-ink uppercase underline'
-const skeletonGridClass =
-  'grid grid-cols-3 items-start gap-x-[0.55rem] gap-y-[clamp(0.9rem,2vw,1.5rem)] border-t border-line md:grid-cols-4'
-const statusClass = 'col-span-full py-8 text-[0.9rem] text-muted'
 
 const banners = ref([])
 const products = ref([])
 const loading = ref(true)
 const error = ref('')
-
 const promotions = computed(() => products.value.filter(isOnPromotion))
 const promoGroups = computed(() => groupPromotions(promotions.value))
 const mostPopular = computed(() => {
@@ -32,92 +23,89 @@ const mostPopular = computed(() => {
   return (bestSellers.length ? bestSellers : products.value).slice(0, 8)
 })
 const newArrivals = computed(() => products.value.slice(0, 8))
+const sections = computed(() =>
+  [
+    { key: 'popular', title: t('home.popular'), products: mostPopular.value, to: '/products' },
+    ...(promoGroups.value.length
+      ? [
+          {
+            key: 'promotions',
+            title: t('home.promotions'),
+            groups: promoGroups.value,
+            to: '/promotion',
+          },
+        ]
+      : []),
+    { key: 'new', title: t('home.newArrivals'), products: newArrivals.value, to: '/products' },
+  ].filter((section) => section.groups || section.products.length),
+)
 
-onMounted(async () => {
+const loadHome = async () => {
+  loading.value = true
+  error.value = ''
   const [bannerResult, productResult] = await Promise.allSettled([getBanners(), getProducts()])
-
   if (bannerResult.status === 'fulfilled') banners.value = bannerResult.value
-
-  if (productResult.status === 'fulfilled') {
-    products.value = productResult.value
-  } else {
-    error.value = productResult.reason?.message || t('home.loadError')
-  }
-
+  if (productResult.status === 'fulfilled') products.value = productResult.value
+  else error.value = t('home.loadError')
   loading.value = false
-})
+}
+onMounted(loadHome)
 </script>
 
 <template>
-  <main>
-    <section class="border-b border-line">
-      <BannerCarousel v-if="banners.length" :banners="banners" />
+  <main class="mx-auto max-w-[1200px] px-5 pb-16 sm:px-8 lg:px-12">
+    <h1 class="sr-only">MONGKOL</h1>
+    <section
+      v-if="banners.length"
+      class="mt-5 overflow-hidden rounded-2xl border border-line sm:mt-8"
+      :aria-label="t('home.featuredPromotions')"
+    >
+      <BannerCarousel :banners="banners" @empty="banners = []" />
     </section>
-
-    <section v-if="loading" :class="sectionClass">
-      <div :class="skeletonGridClass" aria-busy="true" aria-label="Loading products">
-        <div v-for="placeholder in 8" :key="placeholder" class="min-w-0">
-          <div class="aspect-square bg-accent-soft"></div>
-          <div class="grid gap-2 pt-4">
-            <span class="block h-[0.9rem] w-[70%] bg-accent-soft"></span>
-            <span class="block h-[0.7rem] w-[35%] bg-accent-soft"></span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section v-else-if="error" :class="sectionClass">
-      <p :class="[statusClass, 'text-danger']">{{ error }}</p>
-    </section>
-
+    <section v-if="loading" class="pt-10 sm:pt-12"><ProductGridSkeleton /></section>
+    <Alert v-else-if="error" class="mt-10 border-danger-line bg-danger-soft">
+      <AlertTitle>{{ error }}</AlertTitle>
+      <Button type="button" variant="outline" class="mt-4" @click="loadHome">{{
+        t('productDetail.retry')
+      }}</Button>
+    </Alert>
+    <Empty v-else-if="!products.length" class="mt-10 min-h-64"
+      ><EmptyTitle>{{ t('products.empty') }}</EmptyTitle></Empty
+    >
     <template v-else>
-      <section v-if="mostPopular.length" :class="sectionClass">
-        <div :class="sectionHeadClass">
-          <h2 :class="sectionTitleClass">{{ t('home.popular') }}</h2>
-          <RouterLink :class="sectionLinkClass" to="/products">{{ t('home.viewAll') }}</RouterLink>
-        </div>
-        <ProductList :products="mostPopular" />
-      </section>
-
-      <section v-if="promoGroups.length" :class="sectionClass">
-        <div :class="sectionHeadClass">
-          <h2 :class="sectionTitleClass">{{ t('home.promotions') }}</h2>
-          <RouterLink :class="sectionLinkClass" to="/promotion">{{ t('home.viewAll') }}</RouterLink>
-        </div>
-        <div
-          v-for="group in promoGroups"
-          :key="group.key"
-          class="mt-[clamp(1.5rem,3vw,2.5rem)] first:mt-0"
-        >
-          <div
-            v-if="group.discount"
-            class="mb-[clamp(1.75rem,4vw,2.75rem)] grid justify-items-center gap-[0.45rem] text-center"
+      <section
+        v-for="section in sections"
+        :key="section.key"
+        class="pt-10 sm:pt-14"
+        :aria-labelledby="`home-${section.key}`"
+      >
+        <div class="mb-6 flex items-center justify-between gap-4">
+          <h2
+            :id="`home-${section.key}`"
+            class="m-0 text-xl font-semibold leading-snug tracking-tight sm:text-2xl"
           >
-            <h3
-              class="m-0 flex w-full items-center gap-[0.9rem] text-[clamp(1.1rem,4vw,1.5rem)] leading-[1.25] font-semibold text-ink before:min-w-4 before:flex-1 before:border-t before:border-ink before:content-[''] after:min-w-4 after:flex-1 after:border-t after:border-ink after:content-['']"
-            >
-              {{ group.discount.name }}
-            </h3>
-            <p
-              v-if="group.discount.description"
-              class="m-0 max-w-[62ch] text-[1.2rem] leading-[1.6] text-muted"
-            >
-              {{ group.discount.description }}
-            </p>
-            <p v-if="group.discount.end_date" class="text-[1.2rem] font-normal text-muted">
-              {{ t('home.expireOn') }} {{ formatExpiry(group.discount.end_date) }}
-            </p>
+            {{ section.title }}
+          </h2>
+          <Button as-child variant="outline" class="min-h-11 shrink-0 rounded-full px-4">
+            <RouterLink :to="section.to"
+              >{{ t('home.viewAll')
+              }}<svg
+                data-icon="inline-end"
+                class="fill-none stroke-current stroke-[1.5]"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14m-6-6 6 6-6 6" /></svg
+            ></RouterLink>
+          </Button>
+        </div>
+        <div v-if="section.groups" class="grid gap-10">
+          <div v-for="group in section.groups" :key="group.key">
+            <PromotionHeading :discount="group.discount" level="h3" />
+            <ProductList :products="group.products" />
           </div>
-          <ProductList :products="group.products" />
         </div>
-      </section>
-
-      <section v-if="newArrivals.length" :class="sectionClass">
-        <div :class="sectionHeadClass">
-          <h2 :class="sectionTitleClass">{{ t('home.newArrivals') }}</h2>
-          <RouterLink :class="sectionLinkClass" to="/products">{{ t('home.viewAll') }}</RouterLink>
-        </div>
-        <ProductList :products="newArrivals" />
+        <ProductList v-else :products="section.products" />
       </section>
     </template>
   </main>

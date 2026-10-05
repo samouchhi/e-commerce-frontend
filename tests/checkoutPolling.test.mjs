@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { createContext, SourceTextModule, SyntheticModule } from 'node:vm'
 import { parse, compileScript } from '@vue/compiler-sfc'
-import { computed, ref } from 'vue'
+import { computed, ref, nextTick } from 'vue'
+import { translate } from '../src/services/i18n.js'
 
 const TEST_NOW = Date.parse('2026-09-10T09:00:00Z')
 
@@ -43,6 +44,7 @@ async function checkoutHarness({
   const appLaunches = []
   const unmount = []
   const context = createContext({
+    document: { getElementById: () => ({ focus() {} }) },
     navigator: device,
     Date: class extends Date {
       static now() {
@@ -73,7 +75,57 @@ async function checkoutHarness({
     clearTimeout: (id) => timers.delete(id),
   })
   const mocks = {
-    vue: { computed, ref, onMounted() {}, onUnmounted: (callback) => unmount.push(callback) },
+    vue: {
+      computed,
+      ref,
+      nextTick,
+      onMounted() {},
+      onUnmounted: (callback) => unmount.push(callback),
+    },
+    '../services/i18n': { t: (key) => translate('en', key) },
+    '../services/addressService': { getAddresses: async () => [], deleteAddress: async () => {} },
+    '../components/ui/button.js': { Button: {} },
+    '../components/checkout/OrderCompleteDialog.vue': { default: {} },
+    '../components/ui/badge.js': { Badge: {} },
+    '../components/ui/radio-group.js': { RadioGroup: {}, RadioGroupItem: {} },
+    '../components/ui/feedback.js': {
+      CheckoutFeedback: {},
+      Skeleton: {},
+      Empty: {},
+      EmptyTitle: {},
+      EmptyDescription: {},
+    },
+    '../components/ui/alert-dialog.js': {
+      AlertDialog: {},
+      AlertDialogContent: {},
+      AlertDialogTitle: {},
+      AlertDialogDescription: {},
+      AlertDialogCancel: {},
+    },
+    '../components/ui/dialog.js': {
+      Dialog: {},
+      DialogContent: {},
+      DialogTitle: {},
+      DialogDescription: {},
+      DialogClose: {},
+    },
+    '../components/ui/field.js': {
+      FieldSet: {},
+      FieldLegend: {},
+      FieldGroup: {},
+      Field: {},
+      FieldLabel: {},
+      FieldError: {},
+      Separator: {},
+    },
+    '../components/ui/input.js': {
+      Input: {},
+      Textarea: {},
+      NativeSelect: {},
+      InputGroup: {},
+      InputGroupAddon: {},
+      InputGroupInput: {},
+    },
     'vue-router': { RouterLink: {} },
     '../services/api': { default: {}, assetUrl: (path) => path },
     '../services/cartService': {
@@ -118,6 +170,7 @@ async function checkoutHarness({
   await component.evaluate()
   const view = component.namespace.default.setup({}, { expose() {} })
   view.isLoadingLogistics.value = false
+  view.isLoadingAddresses.value = false
   view.logistics.value = [{ id: 1, price: 0 }]
   view.selectedLogisticId.value = 1
   view.form.value = {
@@ -308,7 +361,7 @@ test('ABA scan and processing actions update the screen without completing the o
   assert.match(h.view.paymentStatusMessage.value, /Waiting for payment/)
 
   for (const [nextAction, message] of [
-    ['scanned', /QR scanned.*Confirm the payment/],
+    ['scanned', /Waiting for payment/],
     ['rqpay', /Payment requested/],
     ['processing-payment', /Payment is processing/],
   ]) {
@@ -441,4 +494,88 @@ test('expired or closed payment sessions never automatically open ABA', async ()
   })
   await submitting
   assert.equal(closed.appLaunches.length, 0)
+})
+
+test('the picker stages a choice until the customer applies it', async () => {
+  const h = await checkoutHarness()
+  h.view.addresses.value = [
+    { id: 1, name: 'Home' },
+    { id: 2, name: 'Office' },
+  ]
+  h.view.selectAddress('1')
+  h.view.openAddressPicker()
+  h.view.pendingAddressId.value = '2'
+  assert.equal(h.view.selectedAddressId.value, '1')
+  await h.view.applyAddressSelection()
+  assert.equal(h.view.selectedAddressId.value, '2')
+  assert.equal(h.view.addressPickerOpen.value, false)
+})
+
+test('switching saved addresses preserves the new address draft', async () => {
+  const h = await checkoutHarness()
+  h.view.addresses.value = [{ id: 1, name: 'Home' }]
+  h.view.form.value.name = 'Draft'
+  h.view.selectAddress('1')
+  h.view.selectAddress('new')
+  assert.equal(h.view.form.value.name, 'Draft')
+})
+
+test('invalid delivery details show inline errors and block order creation', async () => {
+  let created = 0
+  const h = await checkoutHarness({
+    create: async () => {
+      created++
+      return { id: 76 }
+    },
+  })
+  h.view.form.value.phone = 'invalid'
+  h.view.form.value.address = ''
+  await h.view.submitOrder()
+  assert.equal(created, 0)
+  assert.ok(h.view.fieldErrors.value.phone)
+  assert.ok(h.view.fieldErrors.value.address)
+})
+
+test('server address validation opens the saved details for correction', async () => {
+  const h = await checkoutHarness({
+    create: async () => {
+      throw Object.assign(new Error('Raw API text'), {
+        status: 422,
+        details: { errors: { phone: ['Invalid phone'] } },
+      })
+    },
+  })
+  h.view.selectedAddressId.value = '1'
+  await h.view.submitOrder()
+  assert.equal(h.view.selectedAddressId.value, 'new')
+  assert.equal(h.view.form.value.name, 'Test')
+  assert.ok(h.view.fieldErrors.value.phone)
+  assert.doesNotMatch(h.view.errorMessage.value, /Raw API/)
+})
+
+test('deleting a selected saved address updates both the picker and checkout selection', async () => {
+  const h = await checkoutHarness()
+  const home = { id: 1, name: 'Home' }
+  h.view.addresses.value = [home, { id: 2, name: 'Office' }]
+  h.view.selectAddress('1')
+  h.view.openAddressPicker()
+  h.view.requestDeleteAddress(home)
+  await h.view.confirmDeleteAddress()
+  assert.equal(h.view.selectedAddressId.value, '2')
+  assert.equal(h.view.pendingAddressId.value, '2')
+  assert.equal(h.view.addresses.value.length, 1)
+})
+
+test('saved international phone numbers remain valid with the existing API contract', async () => {
+  let created = 0
+  const h = await checkoutHarness({
+    create: async () => {
+      created++
+      return { id: 76 }
+    },
+  })
+  h.view.selectedAddressId.value = '1'
+  h.view.form.value.phone = '+85512345678'
+  await h.view.submitOrder()
+  assert.equal(created, 1)
 })

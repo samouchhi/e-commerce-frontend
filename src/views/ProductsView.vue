@@ -1,227 +1,164 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import ProductList from '../components/product/ProductList.vue'
+import ProductGridSkeleton from '../components/product/ProductGridSkeleton.vue'
+import { Button } from '../components/ui/button.js'
+import { Badge } from '../components/ui/badge.js'
+import { Field, FieldGroup, FieldLabel } from '../components/ui/field.js'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  NativeSelect,
+} from '../components/ui/input.js'
+import { Alert, AlertTitle, Empty, EmptyTitle } from '../components/ui/feedback.js'
 import { getCategories } from '../services/categoryService'
 import { getProducts } from '../services/productService'
 import { t } from '../services/i18n'
 
-const catalogClass =
-  'mx-auto max-w-[1200px] px-[clamp(1.25rem,4vw,4.5rem)] py-[clamp(2rem,4vw,3.5rem)]'
-const skeletonGridClass =
-  'grid grid-cols-2 items-start gap-x-[0.7rem] gap-y-[clamp(1rem,2vw,1.5rem)] md:grid-cols-3 lg:grid-cols-4'
-const statusClass = 'col-span-full py-8 text-[0.9rem] text-muted'
-const categoryButtonBase =
-  'shrink-0 cursor-pointer border border-accent px-3 py-1.5 text-[0.78rem] leading-none transition-colors focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-accent'
-const categoryButtonClass = `${categoryButtonBase} bg-paper text-accent hover:bg-accent-soft`
-const categoryButtonActiveClass = `${categoryButtonBase} bg-accent font-semibold text-white hover:bg-accent`
-
 const route = useRoute()
 const router = useRouter()
-
 const products = ref([])
 const categories = ref([])
 const loading = ref(true)
 const error = ref('')
 const searchQuery = ref('')
 const sortBy = ref('best-seller')
-const isSortOpen = ref(false)
-const sortMenu = ref(null)
 const sortOptions = computed(() => [
-  { value: 'name-asc', label: t('products.nameAsc') },
-  { value: 'name-desc', label: t('products.nameDesc') },
   { value: 'best-seller', label: t('products.bestSeller') },
   { value: 'new-arrival', label: t('products.newArrival') },
+  { value: 'name-asc', label: t('products.nameAsc') },
+  { value: 'name-desc', label: t('products.nameDesc') },
 ])
-
 const selectedCategory = computed(() =>
   route.query.category ? Number(route.query.category) : null,
 )
-
-const activeSortLabel = computed(
-  () => sortOptions.value.find((option) => option.value === sortBy.value)?.label || t('products.bestSeller'),
-)
-
 const filteredProducts = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase()
-  const visibleProducts = products.value.filter((product) => {
-    const belongsToCategory =
-      selectedCategory.value === null || product.category?.id === selectedCategory.value
-    const matchesSearch = !query || product.name.toLocaleLowerCase().includes(query)
-
-    return belongsToCategory && matchesSearch
-  })
-
-  if (sortBy.value === 'new-arrival') {
-    return visibleProducts
-  }
-
-  return [...visibleProducts].sort((firstProduct, secondProduct) => {
-    if (sortBy.value === 'name-desc') {
-      return secondProduct.name.localeCompare(firstProduct.name)
-    }
-
-    if (sortBy.value === 'best-seller') {
-      return Number(secondProduct.is_best_seller) - Number(firstProduct.is_best_seller)
-    }
-
-    return firstProduct.name.localeCompare(secondProduct.name)
+  const visibleProducts = products.value.filter(
+    (product) =>
+      (selectedCategory.value === null || product.category?.id === selectedCategory.value) &&
+      (!query || product.name.toLocaleLowerCase().includes(query)),
+  )
+  if (sortBy.value === 'new-arrival') return visibleProducts
+  return [...visibleProducts].sort((first, second) => {
+    if (sortBy.value === 'name-desc') return second.name.localeCompare(first.name)
+    if (sortBy.value === 'best-seller')
+      return Number(second.is_best_seller) - Number(first.is_best_seller)
+    return first.name.localeCompare(second.name)
   })
 })
-
-const selectCategory = (categoryId) => {
-  router.replace({
-    path: '/products',
-    query: categoryId === null ? {} : { category: String(categoryId) },
-  })
+const clearFilters = () => {
+  searchQuery.value = ''
+  sortBy.value = 'best-seller'
+  router.replace('/products')
 }
-
-const selectSort = (value) => {
-  sortBy.value = value
-  isSortOpen.value = false
-}
-
-const closeSortOnOutsideClick = (event) => {
-  if (!sortMenu.value?.contains(event.target)) {
-    isSortOpen.value = false
-  }
-}
-
-onMounted(async () => {
-  window.scrollTo(0, 0)
-  document.addEventListener('click', closeSortOnOutsideClick)
+const loadProducts = async () => {
+  loading.value = true
+  error.value = ''
   try {
     ;[products.value, categories.value] = await Promise.all([getProducts(), getCategories()])
-  } catch (requestError) {
-    error.value = requestError.message || 'Unable to load the collection.'
+  } catch {
+    error.value = t('home.loadError')
   } finally {
     loading.value = false
   }
+}
+onMounted(() => {
+  window.scrollTo(0, 0)
+  loadProducts()
 })
-
-onUnmounted(() => document.removeEventListener('click', closeSortOnOutsideClick))
 </script>
 
 <template>
-  <main :class="catalogClass">
-    <div class="mb-[clamp(1.5rem,3vw,2.5rem)] justify-items-center">
-      <h1 class="mt-6 text-[clamp(1.8rem,4vw,2.7rem)] font-medium tracking-[-0.04em] uppercase">
-        {{ t('products.title') }}
-      </h1>
-    </div>
-    <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <label class="relative block w-full sm:max-w-[12.6rem]">
-        <span class="sr-only">{{ t('products.search') }}</span>
-        <svg
-          class="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-muted"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          aria-hidden="true"
-        >
-          <circle cx="11" cy="11" r="6.5" />
-          <path d="m16 16 4.5 4.5" />
-        </svg>
-        <input
-          v-model="searchQuery"
-          class="h-10 w-full border border-line bg-paper pr-3 pl-10 text-sm text-ink outline-none transition-colors placeholder:text-muted focus:border-accent"
-          type="search"
-          :placeholder="t('products.search')"
-        />
-      </label>
-
-      <div ref="sortMenu" class="relative w-full sm:w-[11.75rem]">
-        <button
-          class="flex h-10 w-full cursor-pointer items-center justify-between bg-accent-soft px-3 text-left text-sm text-ink transition-colors hover:bg-line focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-2 focus-visible:outline-accent"
-          type="button"
-          aria-haspopup="listbox"
-          :aria-expanded="isSortOpen"
-          aria-controls="product-sort-options"
-          @click="isSortOpen = !isSortOpen"
-        >
-          {{ activeSortLabel }}
-          <svg
-            :class="[
-              'h-4 w-4 shrink-0 fill-none stroke-current stroke-[2] transition-transform duration-150 [stroke-linecap:round] [stroke-linejoin:round] motion-reduce:transition-none',
-              isSortOpen ? 'rotate-180' : '',
-            ]"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-        <div
-          v-if="isSortOpen"
-          id="product-sort-options"
-          class="absolute top-[calc(100%+0.5rem)] right-0 z-20 w-full overflow-hidden border border-line bg-paper py-1 shadow-[0_10px_24px_rgba(32,35,33,0.14)]"
-          role="listbox"
-          :aria-label="t('products.sort')"
-        >
-          <button
-            v-for="option in sortOptions"
-            :key="option.value"
-            class="flex min-h-9 w-full cursor-pointer items-center gap-2 px-3 text-left text-sm text-ink transition-colors hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none"
-            type="button"
-            role="option"
-            :aria-selected="sortBy === option.value"
-            @click="selectSort(option.value)"
-          >
-            <svg
-              v-if="sortBy === option.value"
-              class="h-4 w-4 shrink-0 fill-none stroke-current stroke-[2] text-muted [stroke-linecap:round] [stroke-linejoin:round]"
+  <main class="mx-auto max-w-[1200px] px-5 py-8 sm:px-8 sm:py-12 lg:px-12">
+    <header class="mb-8 flex flex-wrap items-center gap-3 sm:mb-10">
+      <h1 class="m-0">{{ t('products.title') }}</h1>
+      <Badge v-if="!loading && !error" variant="secondary" role="status">{{
+        t('products.resultCount').replace('{count}', filteredProducts.length)
+      }}</Badge>
+    </header>
+    <FieldGroup class="mb-5 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,15rem)]">
+      <Field>
+        <FieldLabel for="product-search" class="sr-only">{{ t('products.search') }}</FieldLabel>
+        <InputGroup>
+          <InputGroupAddon
+            ><svg
+              class="size-5 fill-none stroke-current stroke-[1.5]"
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
-              <path d="m5 12 4 4L19 6" />
-            </svg>
-            <span v-else class="h-4 w-4 shrink-0" aria-hidden="true"></span>
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="m16 16 4.5 4.5" /></svg
+          ></InputGroupAddon>
+          <InputGroupInput
+            id="product-search"
+            v-model="searchQuery"
+            type="search"
+            :placeholder="t('products.search')"
+          />
+        </InputGroup>
+      </Field>
+      <Field>
+        <FieldLabel for="product-sort" class="sr-only">{{ t('products.sort') }}</FieldLabel>
+        <NativeSelect id="product-sort" v-model="sortBy"
+          ><option v-for="option in sortOptions" :key="option.value" :value="option.value">
             {{ option.label }}
-          </button>
-        </div>
-      </div>
-    </div>
-
+          </option></NativeSelect
+        >
+      </Field>
+    </FieldGroup>
     <nav
       v-if="!loading && !error && categories.length"
-      class="mb-[clamp(1rem,2vw,1.5rem)] flex gap-2 overflow-x-auto border-y border-line py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      aria-label="Shop by category"
+      class="mb-8 flex flex-wrap gap-2"
+      :aria-label="t('products.shopByCategory')"
     >
-      <button
-        type="button"
-        :class="selectedCategory === null ? categoryButtonActiveClass : categoryButtonClass"
-        :aria-pressed="selectedCategory === null"
-        @click="selectCategory(null)"
+      <Button
+        as-child
+        :variant="selectedCategory === null ? 'default' : 'outline'"
+        class="min-h-11 rounded-full"
       >
-        {{ t('products.all') }}
-      </button>
-      <button
+        <RouterLink
+          to="/products"
+          replace
+          :aria-current="selectedCategory === null ? 'page' : undefined"
+          >{{ t('products.all') }}</RouterLink
+        >
+      </Button>
+      <Button
         v-for="category in categories"
         :key="category.id"
-        type="button"
-        :class="selectedCategory === category.id ? categoryButtonActiveClass : categoryButtonClass"
-        :aria-pressed="selectedCategory === category.id"
-        @click="selectCategory(category.id)"
+        as-child
+        :variant="selectedCategory === category.id ? 'default' : 'outline'"
+        class="h-auto min-h-11 max-w-full rounded-full whitespace-normal text-left"
       >
-        {{ category.name }}
-      </button>
+        <RouterLink
+          :to="{ path: '/products', query: { category: String(category.id) } }"
+          replace
+          :aria-current="selectedCategory === category.id ? 'page' : undefined"
+          >{{ category.name }}</RouterLink
+        >
+      </Button>
     </nav>
-
     <section aria-live="polite">
-      <div v-if="loading" :class="skeletonGridClass" aria-busy="true" aria-label="Loading products">
-        <div v-for="placeholder in 8" :key="placeholder" class="min-w-0">
-          <div class="aspect-square bg-accent-soft"></div>
-          <div class="grid gap-2 pt-4">
-            <span class="block h-[0.9rem] w-[70%] bg-accent-soft"></span>
-            <span class="block h-[0.7rem] w-[35%] bg-accent-soft"></span>
-          </div>
-        </div>
-      </div>
-      <p v-else-if="error" :class="[statusClass, 'text-danger']">{{ error }}</p>
-      <p v-else-if="!filteredProducts.length" :class="statusClass">
-        {{ t('products.noMatch') }}
-      </p>
+      <ProductGridSkeleton v-if="loading" />
+      <Alert v-else-if="error" class="border-danger-line bg-danger-soft"
+        ><AlertTitle>{{ error }}</AlertTitle
+        ><Button type="button" variant="outline" class="mt-4" @click="loadProducts">{{
+          t('productDetail.retry')
+        }}</Button></Alert
+      >
+      <Empty v-else-if="!filteredProducts.length" class="min-h-64 rounded-2xl">
+        <EmptyTitle>{{ products.length ? t('products.noMatch') : t('products.empty') }}</EmptyTitle>
+        <Button
+          v-if="products.length"
+          variant="outline"
+          class="mt-2 rounded-full"
+          @click="clearFilters"
+          >{{ t('products.clearFilters') }}</Button
+        >
+      </Empty>
       <ProductList v-else :products="filteredProducts" />
     </section>
   </main>

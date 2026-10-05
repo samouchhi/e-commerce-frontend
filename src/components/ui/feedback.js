@@ -39,14 +39,14 @@ export const CheckoutFeedback = defineComponent({
     () =>
       h(
         Alert,
-        {},
+        { class: 'rounded-2xl border-danger-line bg-danger-soft p-4' },
         {
           default: () => [
             h('div', { class: 'flex items-start gap-3' }, [
               h(
                 'svg',
                 {
-                  class: 'size-5 shrink-0 text-warning',
+                  class: 'mt-0.5 size-5 shrink-0 text-danger',
                   viewBox: '0 0 24 24',
                   fill: 'none',
                   stroke: 'currentColor',
@@ -56,8 +56,12 @@ export const CheckoutFeedback = defineComponent({
                 [h('circle', { cx: 12, cy: 12, r: 9 }), h('path', { d: 'M12 7v6m0 3v1' })],
               ),
               h('div', { class: 'grid min-w-0 gap-2' }, [
-                h(AlertTitle, {}, { default: () => props.title }),
-                h(AlertDescription, {}, { default: () => props.description }),
+                h(
+                  AlertTitle,
+                  { class: props.description ? 'sr-only' : '' },
+                  { default: () => props.title },
+                ),
+                h(AlertDescription, { class: 'text-ink' }, { default: () => props.description }),
                 props.action
                   ? h(
                       Button,

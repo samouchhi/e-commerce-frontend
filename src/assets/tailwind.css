@@ -3,8 +3,8 @@
 
 /* Design tokens ported 1:1 from the previous src/assets/base.css + main.css */
 @theme {
-  --font-sans: 'Titillium Web', 'Noto Sans Khmer', system-ui, -apple-system, 'Segoe UI', Roboto,
-    sans-serif;
+  --font-sans:
+    'Titillium Web', 'Noto Sans Khmer', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   --color-ink: #111111;
   --color-muted: #6b6b6b;
@@ -131,23 +131,6 @@
  * (and target descendants), so they can't be expressed as inline utilities.
  */
 @layer components {
-  .bag-fade-enter-active .bag-drawer,
-  .bag-fade-leave-active .bag-drawer {
-    transition: transform 300ms ease;
-  }
-  .bag-fade-enter-from .bag-drawer,
-  .bag-fade-leave-to .bag-drawer {
-    transform: translateX(100%);
-  }
-  .bag-fade-enter-active .bag-overlay,
-  .bag-fade-leave-active .bag-overlay {
-    transition: background 300ms ease;
-  }
-  .bag-fade-enter-from .bag-overlay,
-  .bag-fade-leave-to .bag-overlay {
-    background: transparent;
-  }
-
   .gallery-image-enter-active,
   .gallery-image-leave-active {
     transition: opacity 800ms ease;
@@ -173,8 +156,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .bag-fade-enter-active .bag-drawer,
-    .bag-fade-leave-active .bag-drawer,
     .gallery-image-enter-active,
     .gallery-image-leave-active,
     .payment-step-enter-active,

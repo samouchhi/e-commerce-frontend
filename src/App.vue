@@ -16,6 +16,7 @@ import { getCategories } from './services/categoryService'
 import { getSettings } from './services/settingsService'
 import { assetUrl } from './services/api'
 import { locale, setLocale, t } from './services/i18n'
+import ShoppingBag from './components/ShoppingBag.vue'
 import BottomNav from './components/layout/BottomNav.vue'
 import CountryFlag from './components/icons/CountryFlag.vue'
 
@@ -30,6 +31,16 @@ const router = useRouter()
 const warnings = ref({})
 const itemPendingRemoval = ref(null)
 const isBagOpen = ref(false)
+const isBagLoading = ref(false)
+const bagError = ref('')
+let bagReturnFocus
+const restoreBagFocus = (event) => {
+  event.preventDefault()
+  const target = bagReturnFocus?.isConnected
+    ? bagReturnFocus
+    : document.querySelector('[aria-controls="bag-drawer"]')
+  target?.focus()
+}
 const isProfileOpen = ref(false)
 const isCategoryOpen = ref(false)
 const isLocaleOpen = ref(false)
@@ -37,7 +48,6 @@ const isLoggedIn = ref(isAuthenticated())
 const user = ref(getUser())
 const refreshCart = () => (cart.value = getCart())
 const cartCount = computed(() => cart.value.reduce((total, item) => total + item.quantity, 0))
-const cartItemSummary = computed(() => t('cart.itemCount').replace('{count}', cartCount.value))
 const cartSubtotal = computed(() =>
   cart.value.reduce(
     (total, item) => total + (item.unavailable ? 0 : item.price * item.quantity),
@@ -45,15 +55,6 @@ const cartSubtotal = computed(() =>
   ),
 )
 const canCheckout = computed(() => cart.value.every((item) => !item.unavailable))
-const unavailableItems = computed(() => cart.value.filter((item) => item.unavailable))
-const unavailableSummary = computed(() => {
-  const count = unavailableItems.value.length
-  const key = count === 1 ? 'cart.oneItemNeedsRemoval' : 'cart.manyItemsNeedRemoval'
-
-  return t(key).replace('{count}', count)
-})
-const formatPrice = (price) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)
 const productFor = (item) => products.value.find((product) => product.id === item.productId)
 const variantFor = (item) =>
   productFor(item)?.variants?.find((variant) => variant.id === item.variantId)
@@ -114,13 +115,22 @@ const changeVariant = (item, variantId) => {
     quantity: Math.min(item.quantity, Number(variant.stock_qty)),
   })
 }
-const closeBag = () => (isBagOpen.value = false)
+const closeBag = () => {
+  isBagOpen.value = false
+  itemPendingRemoval.value = null
+}
 const openBag = async () => {
+  if (!isBagOpen.value) bagReturnFocus = document.activeElement
   isBagOpen.value = true
+  if (isBagLoading.value) return
+  isBagLoading.value = true
+  bagError.value = ''
   try {
     await resolveCart()
   } catch {
-    // Keep the saved cart visible while the connection is unavailable.
+    bagError.value = t('cart.refreshError')
+  } finally {
+    isBagLoading.value = false
   }
 }
 const closeProfile = () => (isProfileOpen.value = false)
@@ -137,7 +147,6 @@ const handleAuthUpdate = () => {
 const userName = computed(() => user.value?.name || user.value?.email || t('profile.account'))
 const handleEscape = (event) => {
   if (event.key === 'Escape') {
-    closeBag()
     closeProfile()
     closeCategory()
     closeLocale()
@@ -179,6 +188,7 @@ onMounted(async () => {
   }
   window.addEventListener('cart-updated', refreshCart)
   window.addEventListener('cart-item-added', openBag)
+  window.addEventListener('shopping-bag-open', openBag)
   window.addEventListener('auth-updated', handleAuthUpdate)
   window.addEventListener('keydown', handleEscape)
   document.addEventListener('click', handleDocumentClick)
@@ -186,6 +196,7 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('cart-updated', refreshCart)
   window.removeEventListener('cart-item-added', openBag)
+  window.removeEventListener('shopping-bag-open', openBag)
   window.removeEventListener('auth-updated', handleAuthUpdate)
   window.removeEventListener('keydown', handleEscape)
   document.removeEventListener('click', handleDocumentClick)
@@ -573,7 +584,7 @@ onUnmounted(() => {
           type="button"
           :aria-expanded="isBagOpen"
           aria-controls="bag-drawer"
-          :aria-label="`Shopping bag, ${cartCount} items`"
+          :aria-label="`${t('cart.title')}, ${t(cartCount === 1 ? 'cart.itemCount' : 'cart.itemsCount').replace('{count}', cartCount)}`"
           @click="openBag"
         >
           <svg
@@ -813,265 +824,25 @@ onUnmounted(() => {
 
   <BottomNav :is-logged-in="isLoggedIn" />
 
-  <Transition name="bag-fade">
-    <div
-      v-if="isBagOpen"
-      class="bag-overlay fixed inset-0 z-20 bg-[rgba(32,35,33,0.35)]"
-      @click.self="closeBag"
-    >
-      <aside
-        id="bag-drawer"
-        class="bag-drawer ml-auto flex h-full w-[min(100%,430px)] max-w-[430px] flex-col bg-paper p-4 shadow-[-12px_0_35px_rgba(32,35,33,0.15)] sm:p-5"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bag-title"
-      >
-        <div class="flex items-center justify-between border-b border-line pb-3">
-          <h2 id="bag-title" class="flex items-center gap-2 text-[1.1rem] font-semibold text-ink">
-            <svg
-              class="h-5 w-5 fill-none stroke-current stroke-[1.8]"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M3 4h2l2 12h10l2-8H6" />
-              <circle cx="9" cy="19" r="1" />
-              <circle cx="17" cy="19" r="1" />
-            </svg>
-            {{ t('cart.title') }}
-          </h2>
-          <button
-            class="flex size-9 cursor-pointer items-center justify-center rounded-md border border-line bg-paper text-[1.55rem] leading-none text-[#6c451a] transition-colors hover:bg-accent-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#6c451a] active:scale-[0.96]"
-            type="button"
-            :aria-label="t('cart.closeBag')"
-            @click="closeBag"
-          >
-            ×
-          </button>
-        </div>
-
-        <div
-          v-if="cart.length"
-          class="flex items-center justify-between py-2 text-[0.82rem] text-muted"
-        >
-          <span class="tabular-nums">{{ cartItemSummary }}</span>
-          <button
-            class="flex min-h-9 cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[0.78rem] font-semibold text-sale hover:text-danger-strong focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-danger active:scale-[0.96]"
-            type="button"
-            @click="clearBag"
-          >
-            <svg
-              class="size-4 fill-none stroke-current stroke-[1.8]"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
-            </svg>
-            {{ t('cart.clearCart') }}
-          </button>
-        </div>
-        <p v-if="!cart.length" class="py-8 text-[0.8rem] text-muted">{{ t('cart.empty') }}</p>
-        <div
-          v-if="unavailableItems.length"
-          class="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-2 border-l-4 border-danger bg-danger-soft p-3 text-danger"
-          role="alert"
-        >
-          <svg
-            class="mt-0.5 h-4 w-4 shrink-0 fill-none stroke-current stroke-[2]"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              d="M12 8v5m0 4v.01M10.3 3.8 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"
-            />
-          </svg>
-          <p class="m-0 text-[0.82rem] leading-[1.4]">
-            <strong>{{ t('cart.checkoutPaused') }}.</strong> {{ unavailableSummary }}
-          </p>
-        </div>
-
-        <div v-if="cart.length" class="scrollbar-none mt-2 flex-1 space-y-3 overflow-y-auto pb-4">
-          <article
-            v-for="item in cart"
-            :key="item.variantId"
-            :class="[
-              'relative rounded-lg border border-line bg-paper p-3 shadow-[0_1px_2px_rgba(17,17,17,0.03)]',
-              item.unavailable ? 'border-danger-line bg-danger-soft' : '',
-            ]"
-          >
-            <div class="grid grid-cols-[5rem_minmax(0,1fr)_2rem] gap-3">
-              <div
-                class="flex size-20 items-center justify-center overflow-hidden rounded-md bg-accent-soft outline outline-black/10"
-              >
-                <img
-                  v-if="imageUrl(item)"
-                  class="h-full w-full object-cover"
-                  :src="imageUrl(item)"
-                  :alt="item.productName"
-                />
-                <span v-else class="text-center text-[0.55rem] text-muted">{{
-                  t('cart.noImage')
-                }}</span>
-              </div>
-              <div class="min-w-0">
-                <strong
-                  class="block text-[0.9rem] leading-[1.35] font-semibold text-ink [overflow-wrap:anywhere]"
-                  >{{ item.productName }}</strong
-                >
-                <p
-                  v-if="item.unavailable"
-                  class="mt-1 mb-0 text-[0.72rem] leading-[1.35] text-danger"
-                  role="alert"
-                >
-                  {{ t('cart.productUnavailable') }}
-                </p>
-                <div class="mt-2 flex items-baseline gap-2 tabular-nums">
-                  <span
-                    :class="
-                      item.unavailable ? 'text-muted line-through' : 'font-semibold text-sale'
-                    "
-                    >{{ formatPrice(item.price) }}</span
-                  >
-                  <span v-if="item.originalPrice" class="text-[0.78rem] text-muted line-through">{{
-                    formatPrice(item.originalPrice)
-                  }}</span>
-                </div>
-                <select
-                  v-if="!item.unavailable"
-                  :aria-label="t('cart.size')"
-                  class="select-chevron mt-2 min-h-8 max-w-full cursor-pointer rounded border border-line bg-paper py-1 pr-7 pl-2 text-[0.88rem] font-semibold text-ink transition-[border-color,background-color] duration-[160ms] focus-visible:border-accent focus-visible:outline-none"
-                  :value="item.variantId"
-                  @change="changeVariant(item, $event.target.value)"
-                >
-                  <option
-                    v-for="variant in productFor(item)?.variants || [
-                      { id: item.variantId, name: item.variantName },
-                    ]"
-                    :key="variant.id"
-                    :value="variant.id"
-                    :disabled="!variant.is_active || Number(variant.stock_qty) <= 0"
-                  >
-                    {{ variant.name
-                    }}{{ Number(variant.stock_qty) <= 0 ? ` (${t('cart.outOfStock')})` : '' }}
-                  </option>
-                </select>
-              </div>
-              <button
-                class="flex size-8 cursor-pointer items-center justify-center self-start rounded text-sale transition-colors hover:bg-danger-soft focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-danger active:scale-[0.96]"
-                type="button"
-                :aria-label="t('cart.removeFromBag')"
-                :title="t('cart.removeFromBag')"
-                @click="requestRemoval(item)"
-              >
-                <svg
-                  class="size-4 fill-none stroke-current stroke-[1.8]"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
-                </svg>
-              </button>
-            </div>
-            <div class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
-              <div v-if="!item.unavailable" class="flex items-center gap-1">
-                <button
-                  class="flex size-9 cursor-pointer items-center justify-center border-0 bg-transparent text-[1.15rem] text-ink transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:text-line focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-accent active:scale-[0.96]"
-                  type="button"
-                  :aria-label="t('cart.decreaseQuantity')"
-                  :disabled="item.quantity <= 1"
-                  @click="changeQuantity(item, item.quantity - 1)"
-                >
-                  −
-                </button>
-                <span
-                  class="flex h-9 min-w-9 items-center justify-center rounded bg-accent-soft px-2 text-[0.8rem] font-semibold text-ink tabular-nums"
-                  >{{ item.quantity }}</span
-                >
-                <button
-                  class="flex size-9 cursor-pointer items-center justify-center border-0 bg-transparent text-[1.15rem] text-ink transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:text-line focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-accent active:scale-[0.96]"
-                  type="button"
-                  :aria-label="t('cart.increaseQuantity')"
-                  @click="changeQuantity(item, item.quantity + 1)"
-                >
-                  +
-                </button>
-              </div>
-              <span v-else class="text-[0.72rem] font-semibold text-danger">{{
-                t('cart.unavailable')
-              }}</span>
-              <p class="m-0 justify-self-end text-right text-[0.78rem] text-muted">
-                {{ t('cart.total') }}:
-                <strong
-                  :class="[
-                    'text-[0.9rem] tabular-nums',
-                    item.unavailable ? 'text-muted line-through' : 'text-sale',
-                  ]"
-                  >{{ formatPrice(item.price * item.quantity) }}</strong
-                >
-              </p>
-            </div>
-            <small
-              v-if="warnings[item.variantId]"
-              class="mt-2 block text-[0.68rem] text-danger"
-              role="status"
-              >{{ warnings[item.variantId] }}</small
-            >
-            <button
-              v-if="itemPendingRemoval?.variantId === item.variantId"
-              class="rounded absolute top-[3.5rem] right-0 z-10 grid w-[min(19rem,calc(100%-0.5rem))] gap-4 border border-line bg-paper p-3 shadow-[0_12px_28px_rgba(32,35,33,0.2)]"
-              role="dialog"
-              :aria-label="t('cart.confirmRemoval')"
-            >
-              <p class="m-0 text-[1.05rem] font-semibold text-ink">{{ t('cart.confirmRemove') }}</p>
-              <div class="flex justify-end gap-3">
-                <button
-                  class="min-h-8 px-4 text-[0.7rem] font-bold text-muted hover:text-ink hover:bg-accent-soft cursor-pointer"
-                  type="button"
-                  @click="itemPendingRemoval = null"
-                >
-                  {{ t('cart.no') }}
-                </button>
-                <button
-                  class="min-h-8 rounded bg-accent px-3 text-[0.7rem] font-bold text-white active:scale-[0.96] cursor-pointer hover:bg-red-500"
-                  type="button"
-                  @click="confirmRemoval"
-                >
-                  {{ t('cart.yesRemove') }}
-                </button>
-              </div>
-            </button>
-          </article>
-        </div>
-
-        <div v-if="cart.length" class="mt-auto grid shrink-0 gap-3 border-t border-line pt-3">
-          <div class="flex justify-between">
-            <span class="text-[0.9rem] font-semibold text-muted">{{ t('cart.subtotal') }}:</span>
-            <strong class="text-[1.4rem] font-bold text-sale tabular-nums">{{
-              formatPrice(cartSubtotal)
-            }}</strong>
-          </div>
-          <RouterLink
-            v-if="canCheckout"
-            to="/checkout"
-            class="flex min-h-11 w-full items-center justify-center gap-2 rounded bg-accent px-4 py-3 text-center text-[0.88rem] font-bold text-white no-underline transition-colors focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#6c451a] active:scale-[0.96]"
-            @click="closeBag"
-            ><svg
-              class="size-5 fill-none stroke-current stroke-[2]"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="m5 12 4 4L19 6" /></svg
-            >{{ t('checkout.title') }}</RouterLink
-          >
-          <button
-            v-else
-            class="min-h-11 w-full cursor-not-allowed rounded bg-muted px-4 py-3 text-center text-[0.88rem] font-bold text-white"
-            type="button"
-            disabled
-          >
-            {{ t('cart.fixCart') }}
-          </button>
-        </div>
-      </aside>
-    </div>
-  </Transition>
+  <ShoppingBag
+    :open="isBagOpen"
+    :items="cart"
+    :products="products"
+    :warnings="warnings"
+    :pending-removal="itemPendingRemoval"
+    :subtotal="cartSubtotal"
+    :can-checkout="canCheckout"
+    :loading="isBagLoading"
+    :error="bagError"
+    :image-url="imageUrl"
+    @update:open="!$event && closeBag()"
+    @close-auto-focus="restoreBagFocus"
+    @quantity="changeQuantity"
+    @variant="changeVariant"
+    @remove="requestRemoval"
+    @confirm-removal="confirmRemoval"
+    @cancel-removal="itemPendingRemoval = null"
+    @clear="clearBag"
+    @retry="openBag"
+  />
 </template>

@@ -28,13 +28,13 @@ export const AlertDialogContent = defineComponent({
         {},
         {
           default: () => [
-            h(AlertDialogOverlay, { class: 'fixed inset-0 z-50 bg-ink/60' }),
+            h(AlertDialogOverlay, { class: 'fixed inset-0 z-50 bg-ink/35 backdrop-blur-sm' }),
             h(
               Content,
               {
                 ...attrs,
                 class:
-                  'fixed top-1/2 left-1/2 z-50 grid max-h-[90dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl border border-line bg-paper p-6 text-ink shadow-xl',
+                  'fixed top-1/2 left-1/2 z-50 grid max-h-[90dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-3xl bg-paper p-6 text-ink shadow-[0_24px_100px_rgb(0_0_0/12%)]',
               },
               slots,
             ),
