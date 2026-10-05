@@ -2,6 +2,22 @@ import { ref } from 'vue'
 
 const translations = {
   en: {
+    passwordReset: {
+      forgot: 'Forgot password?',
+      forgotTitle: 'Forgot your password?',
+      resetTitle: 'Reset your password',
+      hint: 'Enter your email to receive a password reset link. The link expires in 10 minutes.',
+      resetHint: 'Choose a new password with at least 8 characters.',
+      newPassword: 'New password',
+      sendButton: 'Send reset link',
+      resetButton: 'Reset password',
+      sent: 'If an account exists with this email, a reset link has been sent. It expires in 10 minutes. Please check your spam folder too.',
+      success: 'Your password has been reset. Log in with your new password.',
+      invalid: 'This reset link is invalid or expired. Please request a new link.',
+      tooMany: 'Too many attempts. Please wait a minute and try again.',
+      requestNew: 'Request a new reset link',
+      back: 'Back to login',
+    },
     nav: {
       home: 'Home',
       products: 'Products',
@@ -48,6 +64,7 @@ const translations = {
       sending: 'Sending...',
       newCodeSent: 'A new verification code has been sent.',
       genericError: 'Something went wrong. Please try again.',
+      invalidCredentials: 'The provided credentials are incorrect.',
       pleaseWait: 'Please wait...',
       verifyCode: 'Verify code',
       logIn: 'Log in',
@@ -276,6 +293,22 @@ const translations = {
     },
   },
   km: {
+    passwordReset: {
+      forgot: 'ភ្លេចពាក្យសម្ងាត់?',
+      forgotTitle: 'ភ្លេចពាក្យសម្ងាត់របស់អ្នក?',
+      resetTitle: 'កំណត់ពាក្យសម្ងាត់ឡើងវិញ',
+      hint: 'បញ្ចូលអ៊ីមែលរបស់អ្នក ដើម្បីទទួលតំណកំណត់ពាក្យសម្ងាត់ឡើងវិញ។ តំណនេះផុតកំណត់ក្នុងរយៈពេល ១០ នាទី។',
+      resetHint: 'ជ្រើសរើសពាក្យសម្ងាត់ថ្មីដែលមានយ៉ាងតិច ៨ តួអក្សរ។',
+      newPassword: 'ពាក្យសម្ងាត់ថ្មី',
+      sendButton: 'ផ្ញើតំណកំណត់ពាក្យសម្ងាត់',
+      resetButton: 'កំណត់ពាក្យសម្ងាត់ឡើងវិញ',
+      sent: 'ប្រសិនបើមានគណនីប្រើអ៊ីមែលនេះ តំណកំណត់ពាក្យសម្ងាត់ត្រូវបានផ្ញើរួចហើយ។ តំណនេះផុតកំណត់ក្នុងរយៈពេល ១០ នាទី។ សូមពិនិត្យថតសារឥតបានការផងដែរ។',
+      success: 'ពាក្យសម្ងាត់របស់អ្នកត្រូវបានកំណត់ឡើងវិញ។ សូមចូលគណនីដោយប្រើពាក្យសម្ងាត់ថ្មី។',
+      invalid: 'តំណនេះមិនត្រឹមត្រូវ ឬផុតកំណត់ហើយ។ សូមស្នើសុំតំណថ្មី។',
+      tooMany: 'ព្យាយាមច្រើនដងពេក។ សូមរង់ចាំមួយនាទី រួចព្យាយាមម្តងទៀត។',
+      requestNew: 'ស្នើសុំតំណកំណត់ពាក្យសម្ងាត់ថ្មី',
+      back: 'ត្រឡប់ទៅចូលគណនី',
+    },
     nav: {
       home: 'ទំព័រដើម',
       products: 'ផលិតផល',
@@ -322,6 +355,7 @@ const translations = {
       sending: 'កំពុងផ្ញើ...',
       newCodeSent: 'លេខកូដបញ្ជាក់ថ្មីត្រូវបានផ្ញើរួចហើយ។',
       genericError: 'មានបញ្ហាមួយកើតឡើង។ សូមព្យាយាមម្តងទៀត។',
+      invalidCredentials: 'អ៊ីមែល ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ។',
       pleaseWait: 'សូមរង់ចាំ...',
       verifyCode: 'បញ្ជាក់លេខកូដ',
       logIn: 'ចូលគណនី',

@@ -89,7 +89,8 @@ const resendCode = async () => {
   }
 }
 
-const apiError = () => t('login.genericError')
+const apiError = (error) =>
+  t(error.status === 401 ? 'login.invalidCredentials' : 'login.genericError')
 
 const startVerification = (email, message = '') => {
   form.value.email = email
@@ -348,6 +349,14 @@ onUnmounted(clearResendTimer)
           }}
         </button>
       </form>
+
+      <RouterLink
+        v-if="!isRegistering && !isVerifyingOtp"
+        :to="{ name: 'forgot-password', query: { email: form.email } }"
+        class="mt-5 block text-sm font-bold text-ink underline underline-offset-4 hover:text-accent"
+      >
+        {{ t('passwordReset.forgot') }}
+      </RouterLink>
 
       <button
         v-if="isVerifyingOtp"

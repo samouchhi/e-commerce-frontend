@@ -56,6 +56,18 @@ export const resendOtp = (email) =>
     body: JSON.stringify({ email }),
   })
 
+export const forgotPassword = (email) =>
+  api.request('/api/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+
+export const resetPassword = (credentials) =>
+  api.request('/api/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  })
+
 export const logout = async () => {
   try {
     await api.request('/api/logout', { method: 'POST' })
