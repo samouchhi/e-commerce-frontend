@@ -55,12 +55,20 @@ export const InputGroup = defineComponent({
 })
 export const InputGroupAddon = defineComponent({
   inheritAttrs: false,
+  props: { align: { default: 'inline-start' } },
   setup:
-    (_, { attrs, slots }) =>
+    (props, { attrs, slots }) =>
     () =>
       h(
         'span',
-        { ...attrs, class: cn('shrink-0 pl-4 text-base text-muted', attrs.class) },
+        {
+          ...attrs,
+          class: cn(
+            'shrink-0 text-base text-muted',
+            props.align === 'inline-end' ? 'pr-2' : 'pl-4',
+            attrs.class,
+          ),
+        },
         slots.default?.(),
       ),
 })

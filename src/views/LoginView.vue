@@ -4,10 +4,29 @@ import { useRoute, useRouter } from 'vue-router'
 import { login, register, resendOtp, verifyOtp } from '../services/authService'
 import { getSettings } from '../services/settingsService'
 import { t } from '../services/i18n'
+import { Button } from '../components/ui/button'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '../components/ui/card'
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldError,
+  FieldSet,
+  FieldLegend,
+  Separator,
+} from '../components/ui/field'
+import { Input } from '../components/ui/input'
+import { PasswordInput } from '../components/ui/password-input'
+import { Alert, AlertDescription } from '../components/ui/feedback'
+import { Spinner } from '../components/ui/spinner'
 
-const labelClass = 'grid gap-[0.55rem] text-[0.78rem] leading-[1.2] font-bold text-ink uppercase'
-const inputClass =
-  'w-full min-h-[3.2rem] rounded-[0.35rem] border border-line bg-white pr-[0.9rem] pl-[2.85rem] py-3 text-base text-ink transition-[border-color,box-shadow] duration-[160ms] focus:border-accent focus:shadow-[0_0_0_3px_rgba(17,17,17,0.16)] focus:outline-none'
 const OTP_LENGTH = 6
 
 const route = useRoute()
@@ -18,7 +37,9 @@ const isVerifyingOtp = ref(false)
 const isSubmitting = ref(false)
 const isResending = ref(false)
 const errorMessage = ref('')
+const confirmationInvalid = ref(false)
 const statusMessage = ref('')
+const statusVariant = ref('success')
 const form = ref({ email: '', password: '', password_confirmation: '' })
 const otpDigits = ref(Array(OTP_LENGTH).fill(''))
 const otpInputs = ref([])
@@ -47,7 +68,7 @@ const startResendTimer = () => {
     else clearResendTimer()
   }, 1000)
 }
-const focusOtp = (index) => nextTick(() => otpInputs.value[index]?.focus())
+const focusOtp = (index) => nextTick(() => otpInputs.value[index]?.$el?.focus())
 const fillOtp = (value, start = 0) => {
   const digits = value.replace(/\D/g, '').slice(0, OTP_LENGTH - start)
   if (!digits) return
@@ -73,6 +94,7 @@ const handleOtpKeydown = (event, index) => {
 }
 
 const resendCode = async () => {
+  if (isSubmitting.value || isResending.value || resendSeconds.value) return
   errorMessage.value = ''
   statusMessage.value = ''
   isResending.value = true
@@ -82,6 +104,7 @@ const resendCode = async () => {
     startResendTimer()
     focusOtp(0)
     statusMessage.value = t('login.newCodeSent')
+    statusVariant.value = 'success'
   } catch (error) {
     errorMessage.value = apiError(error)
   } finally {
@@ -97,12 +120,17 @@ const startVerification = (email, message = '') => {
   otpDigits.value = Array(OTP_LENGTH).fill('')
   errorMessage.value = ''
   statusMessage.value = message
+  statusVariant.value = message ? 'error' : 'success'
   isVerifyingOtp.value = true
   startResendTimer()
   focusOtp(0)
 }
 
 const submit = async () => {
+  if (isSubmitting.value || isResending.value || (isVerifyingOtp.value && !isOtpComplete.value))
+    return
+  confirmationInvalid.value = false
+  form.value.email = form.value.email.trim()
   errorMessage.value = ''
   if (isVerifyingOtp.value) {
     isSubmitting.value = true
@@ -117,7 +145,7 @@ const submit = async () => {
     return
   }
   if (isRegistering.value && form.value.password !== form.value.password_confirmation) {
-    errorMessage.value = t('login.passwordsMismatch')
+    confirmationInvalid.value = true
     return
   }
   isSubmitting.value = true
@@ -145,6 +173,8 @@ const submit = async () => {
 }
 
 const toggleMode = () => {
+  if (isSubmitting.value || isResending.value) return
+  confirmationInvalid.value = false
   isRegistering.value = !isRegistering.value
   isVerifyingOtp.value = false
   clearResendTimer()
@@ -155,6 +185,7 @@ const toggleMode = () => {
 }
 
 const changeEmail = () => {
+  if (isSubmitting.value || isResending.value) return
   isVerifyingOtp.value = false
   clearResendTimer()
   errorMessage.value = ''
@@ -174,206 +205,191 @@ onUnmounted(clearResendTimer)
 </script>
 
 <template>
-  <main class="flex min-h-[calc(100vh-6rem)] items-center justify-center px-5 py-10">
-    <section
-      class="w-full max-w-[470px] border-t-[3px] border-accent pt-6"
-      aria-labelledby="auth-title"
-    >
-      <!-- <p v-if="siteName" class="eyebrow">{{ siteName }} account</p> -->
-      <h1 id="auth-title" class="mb-3 text-[clamp(1.6rem,3vw,2.25rem)]">
-        {{
-          isVerifyingOtp
-            ? t('login.verifyTitle')
-            : isRegistering
-              ? t('login.createTitle')
-              : t('login.title')
-        }}
-      </h1>
-      <!-- <p class="mb-8 max-w-md leading-[1.6] text-muted">
-        {{ isRegistering ? 'Save your details for a smoother checkout.' : 'Sign in to continue.' }}
-      </p> -->
-
-      <form class="grid gap-5" @submit.prevent="submit">
-        <label v-if="!isVerifyingOtp" :class="labelClass">
-          {{ t('login.email') }}
-          <div class="group relative">
-            <svg
-              class="pointer-events-none absolute top-1/2 left-4 h-[1.1rem] w-[1.1rem] -translate-y-1/2 text-muted transition-colors duration-[160ms] group-focus-within:text-ink"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.7"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <rect x="3" y="5" width="18" height="14" rx="2" />
-              <path d="m3 7 9 6 9-6" />
-            </svg>
-            <input
-              v-model.trim="form.email"
-              :placeholder="t('login.emailPlaceholder')"
-              required
-              type="email"
-              autocomplete="email"
-              :class="inputClass"
-            />
-          </div>
-        </label>
-        <label v-if="!isVerifyingOtp" :class="labelClass">
-          {{ t('login.password') }}
-          <div class="group relative">
-            <svg
-              class="pointer-events-none absolute top-1/2 left-4 h-[1.1rem] w-[1.1rem] -translate-y-1/2 text-muted transition-colors duration-[160ms] group-focus-within:text-ink"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.7"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <rect x="5" y="10" width="14" height="10" rx="2" />
-              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-            </svg>
-            <input
-              v-model="form.password"
-              :placeholder="t('login.passwordPlaceholder')"
-              required
-              type="password"
-              :autocomplete="isRegistering ? 'new-password' : 'current-password'"
-              minlength="8"
-              :class="inputClass"
-            />
-          </div>
-        </label>
-        <label v-if="isRegistering && !isVerifyingOtp" :class="labelClass">
-          {{ t('login.confirmPassword') }}
-          <div class="group relative">
-            <svg
-              class="pointer-events-none absolute top-1/2 left-4 h-[1.1rem] w-[1.1rem] -translate-y-1/2 text-muted transition-colors duration-[160ms] group-focus-within:text-ink"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.7"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <rect x="5" y="10" width="14" height="10" rx="2" />
-              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-            </svg>
-            <input
-              :placeholder="t('login.confirmPasswordPlaceholder')"
-              v-model="form.password_confirmation"
-              required
-              type="password"
-              autocomplete="new-password"
-              minlength="8"
-              :class="inputClass"
-            />
-          </div>
-        </label>
-        <template v-if="isVerifyingOtp">
-          <p class="-mb-1 max-w-sm leading-[1.6] text-muted">
-            {{ withValues('login.verificationSent', { email: form.email }) }}
-          </p>
-          <fieldset class="m-0 border-0 p-0" aria-describedby="otp-resend">
-            <legend class="sr-only">{{ t('login.verificationLegend') }}</legend>
-            <div class="grid grid-cols-6 gap-2 sm:gap-3">
-              <input
-                v-for="(_, index) in otpDigits"
-                :key="index"
-                :ref="(element) => (otpInputs[index] = element)"
-                :value="otpDigits[index]"
-                :aria-label="withValues('login.otpDigit', { index: index + 1, length: OTP_LENGTH })"
-                :autocomplete="index === 0 ? 'one-time-code' : 'off'"
-                class="h-12 min-w-0 rounded-[0.35rem] border border-line bg-white text-center text-lg font-bold tabular-nums text-ink transition-[border-color,box-shadow] duration-[160ms] focus:border-ink focus:shadow-[0_0_0_3px_rgba(17,17,17,0.14)] focus:outline-none"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                required
-                type="text"
-                @input="updateOtp($event, index)"
-                @keydown="handleOtpKeydown($event, index)"
-                @paste.prevent="fillOtp($event.clipboardData.getData('text'), index)"
-              />
-            </div>
-          </fieldset>
-          <p
-            id="otp-resend"
-            class="-mt-2 flex items-center justify-between gap-3 text-xs text-muted"
-            aria-live="polite"
-          >
-            <span>{{ t('login.spamHint') }}</span>
-            <span v-if="resendSeconds" class="shrink-0 tabular-nums">{{
-              withValues('login.resendIn', { time: resendTime })
-            }}</span>
-            <button
-              v-else
-              class="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-bold text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-wait disabled:text-muted"
-              type="button"
-              :disabled="isResending"
-              @click="resendCode"
-            >
-              {{ isResending ? t('login.sending') : t('login.resendOtp') }}
-            </button>
-          </p>
-        </template>
-        <p
-          v-if="statusMessage"
-          class="m-0 bg-success-soft px-4 py-[0.8rem] leading-[1.5] text-success"
-          role="status"
-        >
-          {{ statusMessage }}
-        </p>
-        <p
-          v-if="errorMessage"
-          class="m-0 border-l-[3px] border-danger bg-[#fbe9e4] px-4 py-[0.8rem] leading-[1.5] text-[#7e271c]"
-          role="alert"
-        >
-          {{ errorMessage }}
-        </p>
-        <button
-          class="rounded mt-2 w-full cursor-pointer border-0 bg-accent p-4 text-center text-[0.8rem] font-bold text-white uppercase no-underline hover:bg-accent-hover focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-wait disabled:bg-muted disabled:opacity-65"
-          type="submit"
-          :disabled="isSubmitting || isResending || (isVerifyingOtp && !isOtpComplete)"
-        >
+  <main class="flex min-h-[calc(100vh-6rem)] items-center justify-center px-4 py-10 sm:px-6">
+    <Card as="section" class="w-full max-w-md" aria-labelledby="auth-title">
+      <CardHeader>
+        <CardTitle as="h1" id="auth-title">
           {{
-            isSubmitting
-              ? t('login.pleaseWait')
-              : isVerifyingOtp
-                ? t('login.verifyCode')
-                : isRegistering
-                  ? t('login.createAccount')
-                  : t('login.logIn')
+            isVerifyingOtp
+              ? t('login.verifyTitle')
+              : isRegistering
+                ? t('login.createTitle')
+                : t('login.title')
           }}
-        </button>
-      </form>
-
-      <RouterLink
-        v-if="!isRegistering && !isVerifyingOtp"
-        :to="{ name: 'forgot-password', query: { email: form.email } }"
-        class="mt-5 block text-sm font-bold text-ink underline underline-offset-4 hover:text-accent"
-      >
-        {{ t('passwordReset.forgot') }}
-      </RouterLink>
-
-      <button
-        v-if="isVerifyingOtp"
-        class="mt-6 cursor-pointer border-0 bg-transparent p-0 text-[0.68rem] font-bold text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent"
-        type="button"
-        @click="changeEmail"
-      >
-        {{ t('login.useDifferentEmail') }}
-      </button>
-      <button
-        v-else
-        class="mt-6 cursor-pointer border-0 bg-transparent p-0 text-[0.88rem] font-bold text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-accent"
-        type="button"
-        @click="toggleMode"
-      >
-        {{ isRegistering ? t('login.switchToLogin') : t('login.switchToRegister') }}
-      </button>
-    </section>
+        </CardTitle>
+        <CardDescription v-if="isVerifyingOtp" id="verification-description">
+          {{ withValues('login.verificationSent', { email: form.email }) }}
+        </CardDescription>
+        <CardDescription v-else-if="siteName">{{ siteName }}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form :aria-busy="isSubmitting || isResending" @submit.prevent="submit">
+          <FieldGroup>
+            <Field v-if="!isVerifyingOtp" :data-disabled="isSubmitting">
+              <FieldLabel for="auth-email">{{ t('login.email') }}</FieldLabel>
+              <Input
+                id="auth-email"
+                v-model="form.email"
+                name="email"
+                :placeholder="t('login.emailPlaceholder')"
+                required
+                type="email"
+                autocomplete="email"
+                :disabled="isSubmitting"
+              />
+            </Field>
+            <Field v-if="!isVerifyingOtp" :data-disabled="isSubmitting">
+              <FieldLabel for="auth-password">{{ t('login.password') }}</FieldLabel>
+              <PasswordInput
+                :key="isRegistering ? 'register-password' : 'login-password'"
+                id="auth-password"
+                :label="t('login.password')"
+                v-model="form.password"
+                name="password"
+                :placeholder="t('login.passwordPlaceholder')"
+                required
+                :autocomplete="isRegistering ? 'new-password' : 'current-password'"
+                minlength="8"
+                :disabled="isSubmitting"
+              />
+            </Field>
+            <Field
+              v-if="isRegistering && !isVerifyingOtp"
+              :data-invalid="confirmationInvalid"
+              :data-disabled="isSubmitting"
+            >
+              <FieldLabel for="auth-confirm-password">{{ t('login.confirmPassword') }}</FieldLabel>
+              <PasswordInput
+                id="auth-confirm-password"
+                :label="t('login.confirmPassword')"
+                v-model="form.password_confirmation"
+                name="password_confirmation"
+                :placeholder="t('login.confirmPasswordPlaceholder')"
+                required
+                autocomplete="new-password"
+                minlength="8"
+                :disabled="isSubmitting"
+                :aria-invalid="confirmationInvalid"
+                :aria-describedby="confirmationInvalid ? 'confirmation-error' : undefined"
+                @update:model-value="confirmationInvalid = false"
+              />
+              <FieldError v-if="confirmationInvalid" id="confirmation-error">{{
+                t('login.passwordsMismatch')
+              }}</FieldError>
+            </Field>
+            <template v-if="isVerifyingOtp">
+              <FieldSet
+                aria-describedby="verification-description otp-resend"
+                :disabled="isSubmitting || isResending"
+              >
+                <FieldLegend class="sr-only">{{ t('login.verificationLegend') }}</FieldLegend>
+                <FieldGroup class="grid-cols-6 gap-2 sm:gap-3">
+                  <Field
+                    v-for="(_, index) in otpDigits"
+                    :key="index"
+                    :data-disabled="isSubmitting || isResending"
+                  >
+                    <Input
+                      :ref="(element) => (otpInputs[index] = element)"
+                      :model-value="otpDigits[index]"
+                      :aria-label="
+                        withValues('login.otpDigit', { index: index + 1, length: OTP_LENGTH })
+                      "
+                      :autocomplete="index === 0 ? 'one-time-code' : 'off'"
+                      class="px-0 text-center"
+                      inputmode="numeric"
+                      pattern="[0-9]"
+                      required
+                      type="text"
+                      :disabled="isSubmitting || isResending"
+                      @input="updateOtp($event, index)"
+                      @keydown="handleOtpKeydown($event, index)"
+                      @paste.prevent="fillOtp($event.clipboardData.getData('text'), index)"
+                    />
+                  </Field>
+                </FieldGroup>
+              </FieldSet>
+              <div
+                id="otp-resend"
+                class="flex flex-col items-start gap-2 text-sm text-muted"
+                aria-live="polite"
+              >
+                <p class="m-0">{{ t('login.spamHint') }}</p>
+                <span v-if="resendSeconds" class="tabular-nums">{{
+                  withValues('login.resendIn', { time: resendTime })
+                }}</span>
+                <Button
+                  v-else
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  :disabled="isResending || isSubmitting"
+                  @click="resendCode"
+                >
+                  <Spinner v-if="isResending" data-icon="inline-start" />
+                  {{ isResending ? t('login.sending') : t('login.resendOtp') }}
+                </Button>
+              </div>
+            </template>
+            <Alert v-if="statusMessage" :variant="statusVariant" role="status"
+              ><AlertDescription>{{ statusMessage }}</AlertDescription></Alert
+            >
+            <Alert v-if="errorMessage" variant="error"
+              ><AlertDescription>{{ errorMessage }}</AlertDescription></Alert
+            >
+            <Button
+              class="w-full"
+              size="lg"
+              type="submit"
+              :disabled="isSubmitting || isResending || (isVerifyingOtp && !isOtpComplete)"
+            >
+              <Spinner v-if="isSubmitting" data-icon="inline-start" />
+              {{
+                isSubmitting
+                  ? t('login.pleaseWait')
+                  : isVerifyingOtp
+                    ? t('login.verifyCode')
+                    : isRegistering
+                      ? t('login.createAccount')
+                      : t('login.logIn')
+              }}
+            </Button>
+          </FieldGroup>
+        </form>
+      </CardContent>
+      <CardFooter class="flex-col items-stretch">
+        <Button
+          v-if="!isRegistering && !isVerifyingOtp"
+          variant="ghost"
+          as-child
+          :disabled="isSubmitting"
+        >
+          <RouterLink
+            :to="{ name: 'forgot-password', query: { email: form.email } }"
+            :tabindex="isSubmitting ? -1 : undefined"
+            :aria-disabled="isSubmitting"
+            @click="isSubmitting && $event.preventDefault()"
+            >{{ t('passwordReset.forgot') }}</RouterLink
+          >
+        </Button>
+        <Separator />
+        <Button
+          v-if="isVerifyingOtp"
+          variant="outline"
+          type="button"
+          :disabled="isSubmitting || isResending"
+          @click="changeEmail"
+          >{{ t('login.useDifferentEmail') }}</Button
+        >
+        <Button
+          v-else
+          variant="outline"
+          type="button"
+          :disabled="isSubmitting"
+          @click="toggleMode"
+          >{{ isRegistering ? t('login.switchToLogin') : t('login.switchToRegister') }}</Button
+        >
+      </CardFooter>
+    </Card>
   </main>
 </template>

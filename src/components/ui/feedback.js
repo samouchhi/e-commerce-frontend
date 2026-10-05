@@ -1,5 +1,6 @@
 // shadcn-vue feedback primitives, adapted to JavaScript and storefront tokens.
 import { defineComponent, h } from 'vue'
+import { cva } from 'class-variance-authority'
 import { cn } from '../../lib/utils.js'
 import { Button } from './button.js'
 
@@ -12,13 +13,39 @@ const primitive = (tag, classes, defaults = {}) =>
         h(tag, { ...defaults, ...attrs, class: cn(classes, attrs.class) }, slots.default?.()),
   })
 
-export const Alert = primitive(
-  'div',
-  'relative w-full rounded-lg border border-warning-line bg-warning-soft p-4 text-left text-ink',
-  { role: 'alert' },
-)
+const alertVariants = cva('group relative w-full rounded-lg border p-4 text-left', {
+  variants: {
+    variant: {
+      default: 'border-warning-line bg-warning-soft text-ink',
+      error: 'border-danger-line bg-danger-soft text-danger',
+      success: 'border-success-line bg-success-soft text-success',
+    },
+  },
+  defaultVariants: { variant: 'default' },
+})
+
+export const Alert = defineComponent({
+  inheritAttrs: false,
+  props: { variant: { default: 'default' } },
+  setup:
+    (props, { attrs, slots }) =>
+    () =>
+      h(
+        'div',
+        {
+          role: 'alert',
+          ...attrs,
+          'data-variant': props.variant,
+          class: cn(alertVariants({ variant: props.variant }), attrs.class),
+        },
+        slots.default?.(),
+      ),
+})
 export const AlertTitle = primitive('h3', 'm-0 text-sm font-semibold leading-tight')
-export const AlertDescription = primitive('div', 'text-sm leading-relaxed text-muted')
+export const AlertDescription = primitive(
+  'div',
+  'text-sm leading-relaxed text-muted group-data-[variant=error]:text-danger group-data-[variant=success]:text-success',
+)
 export const Skeleton = primitive(
   'div',
   'animate-pulse rounded-md bg-accent-soft motion-reduce:animate-none',

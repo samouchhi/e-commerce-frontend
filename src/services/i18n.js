@@ -44,6 +44,8 @@ const translations = {
       createAccount: 'Create account',
     },
     login: {
+      showPassword: 'Show password',
+      hidePassword: 'Hide password',
       title: 'Login',
       createTitle: 'Create your account',
       createAccount: 'Create account',
@@ -393,6 +395,8 @@ const translations = {
       createAccount: 'បង្កើតគណនី',
     },
     login: {
+      showPassword: 'បង្ហាញពាក្យសម្ងាត់',
+      hidePassword: 'លាក់ពាក្យសម្ងាត់',
       title: 'ចូលគណនី',
       createTitle: 'បង្កើតគណនីរបស់អ្នក',
       createAccount: 'បង្កើតគណនី',

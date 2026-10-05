@@ -3,6 +3,20 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { forgotPassword, resetPassword } from '../services/authService'
 import { t } from '../services/i18n'
+import { Button } from '../components/ui/button'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '../components/ui/card'
+import { Field, FieldGroup, FieldLabel, FieldError, Separator } from '../components/ui/field'
+import { Input } from '../components/ui/input'
+import { PasswordInput } from '../components/ui/password-input'
+import { Alert, AlertDescription } from '../components/ui/feedback'
+import { Spinner } from '../components/ui/spinner'
 
 const route = useRoute()
 const isReset = computed(() => route.name === 'reset-password')
@@ -13,11 +27,9 @@ const submitting = ref(false)
 const completed = ref(false)
 const statusKey = ref('')
 const errorKey = ref('')
+const confirmationInvalid = ref(false)
 const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : ''))
 const missingLink = computed(() => isReset.value && (!token.value || !email.value))
-const inputClass =
-  'min-h-[3.2rem] w-full rounded-[0.35rem] border border-line bg-white px-4 py-3 text-base text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
-
 watch(
   () => route.fullPath,
   () => {
@@ -27,14 +39,18 @@ watch(
     completed.value = false
     statusKey.value = ''
     errorKey.value = ''
+    confirmationInvalid.value = false
   },
 )
 
 const submit = async () => {
+  if (submitting.value || completed.value || missingLink.value) return
+  confirmationInvalid.value = false
+  email.value = email.value.trim()
   errorKey.value = ''
   statusKey.value = ''
   if (isReset.value && password.value !== confirmation.value) {
-    errorKey.value = 'login.passwordsMismatch'
+    confirmationInvalid.value = true
     return
   }
   submitting.value = true
@@ -71,94 +87,124 @@ const submit = async () => {
 </script>
 
 <template>
-  <main class="flex min-h-[calc(100vh-6rem)] items-center justify-center px-5 py-10">
-    <section
-      class="w-full max-w-[470px] border-t-[3px] border-accent pt-6"
-      aria-labelledby="reset-title"
-    >
-      <h1 id="reset-title" class="mb-3 text-[clamp(1.6rem,3vw,2.25rem)]">
-        {{ t(isReset ? 'passwordReset.resetTitle' : 'passwordReset.forgotTitle') }}
-      </h1>
-      <p class="mb-7 leading-relaxed text-muted">
-        {{ t(isReset ? 'passwordReset.resetHint' : 'passwordReset.hint') }}
-      </p>
-      <form v-if="!completed && !missingLink" class="grid gap-5" @submit.prevent="submit">
-        <label v-if="!isReset" class="grid gap-2 text-sm font-bold text-ink">
-          {{ t('login.email') }}
-          <input
-            v-model.trim="email"
-            type="email"
-            autocomplete="email"
-            required
-            :class="inputClass"
-            :placeholder="t('login.emailPlaceholder')"
-          />
-        </label>
-        <template v-if="isReset">
-          <label class="grid gap-2 text-sm font-bold text-ink">
-            {{ t('passwordReset.newPassword') }}
-            <input
-              v-model="password"
-              type="password"
-              autocomplete="new-password"
-              minlength="8"
-              required
-              :class="inputClass"
-            />
-          </label>
-          <label class="grid gap-2 text-sm font-bold text-ink">
-            {{ t('login.confirmPassword') }}
-            <input
-              v-model="confirmation"
-              type="password"
-              autocomplete="new-password"
-              minlength="8"
-              required
-              :class="inputClass"
-            />
-          </label>
-        </template>
-        <button
-          type="submit"
+  <main class="flex min-h-[calc(100vh-6rem)] items-center justify-center px-4 py-10 sm:px-6">
+    <Card as="section" class="w-full max-w-md" aria-labelledby="reset-title">
+      <CardHeader>
+        <CardTitle as="h1" id="reset-title">{{
+          t(isReset ? 'passwordReset.resetTitle' : 'passwordReset.forgotTitle')
+        }}</CardTitle>
+        <CardDescription id="reset-description">{{
+          t(isReset ? 'passwordReset.resetHint' : 'passwordReset.hint')
+        }}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div class="flex flex-col gap-5">
+          <form
+            v-if="!completed && !missingLink"
+            :aria-busy="submitting"
+            aria-describedby="reset-description"
+            @submit.prevent="submit"
+          >
+            <FieldGroup>
+              <Field v-if="!isReset" :data-disabled="submitting">
+                <FieldLabel for="reset-email">{{ t('login.email') }}</FieldLabel>
+                <Input
+                  id="reset-email"
+                  v-model="email"
+                  name="email"
+                  type="email"
+                  autocomplete="email"
+                  required
+                  :disabled="submitting"
+                  :placeholder="t('login.emailPlaceholder')"
+                />
+              </Field>
+              <template v-if="isReset">
+                <Field :data-disabled="submitting">
+                  <FieldLabel for="reset-password">{{ t('passwordReset.newPassword') }}</FieldLabel>
+                  <PasswordInput
+                    :key="route.fullPath + 'reset-password'"
+                    id="reset-password"
+                    :label="t('passwordReset.newPassword')"
+                    v-model="password"
+                    name="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                    :disabled="submitting"
+                  />
+                </Field>
+                <Field :data-invalid="confirmationInvalid" :data-disabled="submitting">
+                  <FieldLabel for="reset-confirmation">{{ t('login.confirmPassword') }}</FieldLabel>
+                  <PasswordInput
+                    :key="route.fullPath + 'reset-confirmation'"
+                    id="reset-confirmation"
+                    :label="t('login.confirmPassword')"
+                    v-model="confirmation"
+                    name="password_confirmation"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                    :disabled="submitting"
+                    :aria-invalid="confirmationInvalid"
+                    :aria-describedby="confirmationInvalid ? 'reset-confirmation-error' : undefined"
+                    @update:model-value="confirmationInvalid = false"
+                  />
+                  <FieldError v-if="confirmationInvalid" id="reset-confirmation-error">{{
+                    t('login.passwordsMismatch')
+                  }}</FieldError>
+                </Field>
+              </template>
+              <Button type="submit" size="lg" class="w-full" :disabled="submitting">
+                <Spinner v-if="submitting" data-icon="inline-start" />
+                {{
+                  t(
+                    submitting
+                      ? 'login.pleaseWait'
+                      : isReset
+                        ? 'passwordReset.resetButton'
+                        : 'passwordReset.sendButton',
+                  )
+                }}
+              </Button>
+            </FieldGroup>
+          </form>
+          <Alert v-if="statusKey" variant="success" role="status"
+            ><AlertDescription>{{ t(statusKey) }}</AlertDescription></Alert
+          >
+          <Alert v-if="errorKey || missingLink" variant="error"
+            ><AlertDescription>{{
+              t(missingLink ? 'passwordReset.invalid' : errorKey)
+            }}</AlertDescription></Alert
+          >
+        </div>
+      </CardContent>
+      <CardFooter class="flex-col items-stretch">
+        <Button
+          v-if="isReset && !completed && (missingLink || errorKey === 'passwordReset.invalid')"
+          variant="outline"
+          as-child
           :disabled="submitting"
-          class="mt-2 w-full cursor-pointer rounded border-0 bg-accent p-4 text-center text-sm font-bold text-white hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-wait disabled:opacity-65"
         >
-          {{
-            t(
-              submitting
-                ? 'login.pleaseWait'
-                : isReset
-                  ? 'passwordReset.resetButton'
-                  : 'passwordReset.sendButton',
-            )
-          }}
-        </button>
-      </form>
-      <p
-        v-if="statusKey"
-        role="status"
-        class="mt-5 bg-success-soft px-4 py-3 leading-relaxed text-success"
-      >
-        {{ t(statusKey) }}
-      </p>
-      <p
-        v-if="errorKey || missingLink"
-        role="alert"
-        class="mt-5 border-l-[3px] border-danger bg-[#fbe9e4] px-4 py-3 leading-relaxed text-[#7e271c]"
-      >
-        {{ t(missingLink ? 'passwordReset.invalid' : errorKey) }}
-      </p>
-      <RouterLink
-        v-if="isReset && !completed && (missingLink || errorKey === 'passwordReset.invalid')"
-        :to="{ name: 'forgot-password', query: { email } }"
-        class="mt-5 block text-sm font-bold text-ink underline underline-offset-4 hover:text-accent"
-        >{{ t('passwordReset.requestNew') }}</RouterLink
-      >
-      <RouterLink
-        to="/login"
-        class="mt-6 inline-block text-sm font-bold text-ink underline underline-offset-4 hover:text-accent"
-        >{{ t('passwordReset.back') }}</RouterLink
-      >
-    </section>
+          <RouterLink
+            :to="{ name: 'forgot-password', query: { email } }"
+            :tabindex="submitting ? -1 : undefined"
+            :aria-disabled="submitting"
+            @click="submitting && $event.preventDefault()"
+            >{{ t('passwordReset.requestNew') }}</RouterLink
+          >
+        </Button>
+        <Separator />
+        <Button variant="ghost" as-child :disabled="submitting">
+          <RouterLink
+            to="/login"
+            :tabindex="submitting ? -1 : undefined"
+            :aria-disabled="submitting"
+            @click="submitting && $event.preventDefault()"
+            >{{ t('passwordReset.back') }}</RouterLink
+          >
+        </Button>
+      </CardFooter>
+    </Card>
   </main>
 </template>
