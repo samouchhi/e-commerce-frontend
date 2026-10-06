@@ -3,6 +3,11 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import ProductList from '../components/product/ProductList.vue'
 import DetailIcon from '../components/product/ProductDetailIcon.vue'
+import { Button } from '../components/ui/button'
+import { Skeleton } from '../components/ui/feedback'
+import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group'
+import { FieldSet, FieldLegend, Separator } from '../components/ui/field'
+import { cn } from '../lib/utils'
 import { addToCart as addItemToCart, getCart } from '../services/cartService'
 import { assetUrl } from '../services/api'
 import { getProducts } from '../services/productService'
@@ -86,12 +91,6 @@ const imageFailed = (image) => {
 const chooseImage = (index) => {
   selectedImage.value = (index + images.value.length) % images.value.length
 }
-const summary = computed(() => {
-  if (product.value?.short_description) return product.value.short_description
-  if (!product.value?.description) return ''
-  const content = new DOMParser().parseFromString(product.value.description, 'text/html')
-  return (content.querySelector('p')?.textContent || content.body.textContent || '').trim()
-})
 const stockLabel = computed(() =>
   !availableVariants.value.length
     ? t('cart.outOfStock')
@@ -123,7 +122,12 @@ const specifications = computed(() => {
 })
 const sections = computed(() =>
   [
-    { key: 'description', icon: 'list', html: product.value?.description },
+    {
+      key: 'description',
+      icon: 'list',
+      html: product.value?.description,
+      text: product.value?.short_description,
+    },
     {
       key: 'specifications',
       icon: 'info',
@@ -263,9 +267,11 @@ watch(() => route.params.slug, loadProduct)
 </script>
 
 <template>
-  <main class="mx-auto max-w-[1240px] px-5 pt-6 pb-24 sm:px-8 md:pt-8 md:pb-14 lg:px-12">
+  <main
+    class="mx-auto max-w-[1240px] px-5 pt-3 pb-20 sm:px-8 md:pt-5 md:pb-16 lg:px-10 selection:bg-ink selection:text-paper"
+  >
     <nav
-      class="mb-7 flex min-w-0 items-center gap-2 text-xs text-muted sm:mb-9"
+      class="mb-4 flex min-w-0 items-center gap-2 text-xs text-muted sm:mb-6"
       :aria-label="t('productDetail.breadcrumbs')"
     >
       <RouterLink
@@ -287,15 +293,16 @@ watch(() => route.params.slug, loadProduct)
     </nav>
     <div
       v-if="loading"
-      class="grid gap-8 md:grid-cols-[1.1fr_1fr] md:gap-12"
+      class="grid gap-7 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-16"
       aria-busy="true"
+      role="status"
       :aria-label="t('productDetail.loading')"
     >
-      <div class="skeleton aspect-square rounded-lg motion-safe:animate-shimmer"></div>
+      <Skeleton class="aspect-[6/5] md:aspect-square" />
       <div class="grid content-start gap-5 pt-5">
-        <div class="skeleton h-10 w-4/5 motion-safe:animate-shimmer"></div>
-        <div class="skeleton h-6 w-1/3 motion-safe:animate-shimmer"></div>
-        <div class="skeleton mt-8 h-14 motion-safe:animate-shimmer"></div>
+        <Skeleton class="h-10 w-4/5" />
+        <Skeleton class="h-6 w-1/3" />
+        <Skeleton class="mt-8 h-14" />
       </div>
     </div>
     <div v-else-if="error" class="py-16 text-center">
@@ -313,17 +320,19 @@ watch(() => route.params.slug, loadProduct)
     </div>
     <template v-else-if="product">
       <section
-        class="grid items-start gap-8 md:grid-cols-[1.1fr_1fr] md:gap-12 lg:gap-16"
+        class="grid items-start gap-7 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-16"
         aria-labelledby="product-title"
       >
-        <div class="min-w-0">
+        <div
+          class="grid min-w-0 gap-3 md:sticky md:top-6 lg:grid-cols-[3.5rem_minmax(0,1fr)] lg:gap-4"
+        >
           <div
-            class="relative aspect-square overflow-hidden rounded-lg border border-line/70 bg-[#f7f7f7]"
+            class="relative aspect-[6/5] overflow-hidden bg-accent-soft/50 md:aspect-square lg:col-start-2 lg:row-start-1"
           >
             <button
               v-if="imageAvailable"
               type="button"
-              class="h-full w-full cursor-zoom-in p-4 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-accent sm:p-6"
+              class="h-full w-full cursor-zoom-in p-2 focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-accent sm:p-3"
               :aria-label="t('productDetail.zoom')"
               @click="galleryDialog.showModal()"
             >
@@ -348,7 +357,7 @@ watch(() => route.params.slug, loadProduct)
             <button
               v-if="imageAvailable"
               type="button"
-              class="absolute right-4 bottom-4 flex size-11 cursor-zoom-in items-center justify-center rounded-full border border-line bg-white hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-accent"
+              class="absolute right-3 bottom-3 flex size-11 cursor-zoom-in items-center justify-center bg-paper hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-accent"
               :aria-label="t('productDetail.zoom')"
               @click="galleryDialog.showModal()"
             >
@@ -357,16 +366,16 @@ watch(() => route.params.slug, loadProduct)
           </div>
           <div
             v-if="images.length > 1"
-            class="mt-4 flex max-w-full gap-3 overflow-x-auto py-1"
+            class="flex max-w-full gap-2 overflow-x-auto py-1 lg:col-start-1 lg:row-start-1 lg:max-h-[32rem] lg:flex-col lg:overflow-y-auto lg:py-0"
             :aria-label="t('productDetail.productImages')"
           >
             <button
               v-for="(image, index) in images"
               :key="`${imageUrl(image)}-${index}`"
               type="button"
-              class="flex size-[4.5rem] shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-md border-2 bg-[#f7f7f7] p-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:size-20"
+              class="flex size-14 shrink-0 cursor-pointer items-center justify-center overflow-hidden border bg-accent-soft/50 p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               :class="
-                index === selectedImage ? 'border-ink' : 'border-transparent hover:border-line'
+                cn(index === selectedImage ? 'border-ink' : 'border-transparent hover:border-line')
               "
               :aria-pressed="index === selectedImage"
               :aria-label="`${t('productDetail.productImages')} ${index + 1}`"
@@ -384,46 +393,23 @@ watch(() => route.params.slug, loadProduct)
           </div>
         </div>
         <div class="min-w-0 md:pt-1">
-          <p
-            v-if="product.category?.name"
-            class="mb-3 text-xs font-semibold tracking-[0.12em] text-muted uppercase"
-          >
-            {{ product.category.name }}
-          </p>
           <h1
             id="product-title"
-            class="!mt-0 !mb-4 !text-[clamp(1.7rem,3vw,2.35rem)] !leading-[1.2]"
+            class="!mt-0 !mb-4 !text-[clamp(1.6rem,2.5vw,2rem)] !leading-[1.2] text-balance break-words"
           >
             {{ product.name }}
           </h1>
-          <p v-if="summary" class="mb-5 line-clamp-3 text-sm leading-7 text-muted sm:text-base">
-            {{ summary }}
-          </p>
-          <div class="flex flex-wrap items-baseline gap-3" aria-live="polite">
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-2" aria-live="polite">
             <span v-if="priceRange" class="text-sm text-muted">{{ t('productDetail.from') }}</span>
-            <p
-              class="text-[1.8rem] font-semibold tabular-nums"
-              :class="price.discounted ? 'text-sale' : 'text-ink'"
-            >
+            <p class="text-2xl font-semibold text-sale tabular-nums">
               {{ priceLabel }}
             </p>
             <s v-if="price.discounted" class="text-base tabular-nums text-muted">{{
               formatPrice(price.original)
             }}</s>
           </div>
-          <p
-            class="mt-3 inline-flex items-center gap-2 text-xs font-semibold"
-            :class="availableVariants.length ? 'text-success' : 'text-danger'"
-            role="status"
-          >
-            <span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span
-            >{{ stockLabel }}
-          </p>
-          <div
-            v-if="groups.length"
-            ref="optionControls"
-            class="mt-7 space-y-6 border-t border-line pt-6"
-          >
+          <p class="mt-2 text-xs text-muted" role="status">{{ stockLabel }}</p>
+          <div v-if="groups.length" ref="optionControls" class="mt-6 flex flex-col gap-4">
             <button
               v-if="Object.keys(selections).length && groups.length > 1"
               type="button"
@@ -432,50 +418,38 @@ watch(() => route.params.slug, loadProduct)
             >
               {{ t('productDetail.resetOptions') }}
             </button>
-            <fieldset
+            <FieldSet
               v-for="group in groups"
               :key="group.key"
               class="min-w-0"
               :aria-describedby="feedbackError && feedback ? 'purchase-feedback' : undefined"
             >
-              <legend class="mb-3 text-sm font-semibold text-ink">
-                {{ group.label || t('productDetail.options')
-                }}<span v-if="selections[group.key]" class="ml-2 font-normal text-muted">{{
-                  group.values.find((option) => option.value === selections[group.key])?.label
-                }}</span>
-              </legend>
-              <div class="flex flex-wrap gap-2.5">
-                <button
+              <FieldLegend class="mb-2">{{
+                group.label || t('productDetail.options')
+              }}</FieldLegend>
+              <ToggleGroup
+                :model-value="selections[group.key] || ''"
+                :aria-label="group.label || t('productDetail.options')"
+                :disabled="purchasing"
+                @update:model-value="(value) => value && selectOption(group, value)"
+              >
+                <ToggleGroupItem
                   v-for="option in group.values"
                   :key="option.value"
-                  type="button"
-                  class="inline-flex min-h-12 min-w-14 max-w-full cursor-pointer items-center justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:border-line disabled:bg-accent-soft disabled:text-muted disabled:line-through"
-                  :class="
-                    selections[group.key] === option.value
-                      ? 'border-ink bg-ink text-white'
-                      : 'border-line bg-white text-ink hover:border-ink'
-                  "
-                  :disabled="
-                    purchasing || !optionAvailable(product, selections, group.key, option.value)
-                  "
-                  :aria-pressed="selections[group.key] === option.value"
-                  @click="selectOption(group, option.value)"
+                  :value="option.value"
+                  :disabled="!optionAvailable(product, selections, group.key, option.value)"
                 >
-                  <span class="break-words">{{ option.label }}</span
-                  ><DetailIcon
-                    v-if="selections[group.key] === option.value"
-                    name="check"
-                    class="size-4 shrink-0"
-                  />
-                </button>
-              </div>
-            </fieldset>
+                  <span class="break-words">{{ option.label }}</span>
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </FieldSet>
           </div>
-          <div class="mt-7 border-t border-line pt-6" :aria-busy="purchasing">
-            <p class="mb-3 text-xs font-semibold text-muted">{{ t('cart.quantity') }}</p>
-            <div class="flex items-stretch gap-3">
+          <Separator class="mt-6" />
+          <div class="mt-5" :aria-busy="purchasing">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <span class="text-sm text-muted">{{ t('cart.quantity') }}</span>
               <div
-                class="flex h-14 shrink-0 items-center overflow-hidden rounded-md border border-line"
+                class="flex h-11 shrink-0 items-center border border-line"
                 role="group"
                 :aria-label="t('cart.quantity')"
               >
@@ -503,30 +477,34 @@ watch(() => route.params.slug, loadProduct)
                   <DetailIcon name="plus" class="size-4" />
                 </button>
               </div>
-              <button
-                type="button"
-                class="flex min-h-14 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2.5 rounded-md bg-ink px-3 py-3 text-sm font-semibold text-white hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
-                :disabled="
-                  purchasing || !availableVariants.length || (!!selectedVariant && !purchasable)
-                "
-                @click="purchase()"
-              >
-                <DetailIcon
-                  :name="feedback === 'productDetail.addedToCart' ? 'check' : 'bag'"
-                  class="size-5 shrink-0"
-                />{{ purchasing ? t('productDetail.working') : t('productDetail.addToCart') }}
-              </button>
             </div>
-            <button
+            <Button
               type="button"
-              class="mt-3 flex min-h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-md border border-ink bg-white px-5 py-3 text-sm font-semibold text-ink hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent disabled:cursor-not-allowed disabled:border-line disabled:text-muted"
+              size="lg"
+              class="mt-4 h-12 w-full min-w-0 whitespace-normal"
+              :disabled="
+                purchasing || !availableVariants.length || (!!selectedVariant && !purchasable)
+              "
+              @click="purchase()"
+            >
+              <DetailIcon
+                :name="feedback === 'productDetail.addedToCart' ? 'check' : 'bag'"
+                data-icon="inline-start"
+              />
+              {{ purchasing ? t('productDetail.working') : t('productDetail.addToCart') }}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              class="mt-1 w-full whitespace-normal"
               :disabled="
                 purchasing || !availableVariants.length || (!!selectedVariant && !purchasable)
               "
               @click="purchase(true)"
             >
-              {{ t('productDetail.buyNow') }}<DetailIcon name="arrow" class="size-5" />
-            </button>
+              {{ t('productDetail.buyNow') }}
+            </Button>
             <p
               v-if="feedback"
               id="purchase-feedback"
@@ -540,24 +518,22 @@ watch(() => route.params.slug, loadProduct)
               />{{ t(feedback) }}
             </p>
           </div>
-          <div v-if="sections.length" class="mt-7 border-t border-line">
+          <div v-if="sections.length" class="mt-5">
             <details
               v-for="section in sections"
               :key="section.key"
               class="group border-b border-line"
-              :open="section.key === 'description'"
             >
               <summary
-                class="flex min-h-16 cursor-pointer list-none items-center gap-3 py-4 text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden"
+                class="flex min-h-14 cursor-pointer list-none items-center gap-3 py-4 text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden"
               >
-                <DetailIcon :name="section.icon" class="size-5 shrink-0 text-muted" />{{
-                  t(`productDetail.${section.key}`)
+                {{ t(`productDetail.${section.key}`)
                 }}<DetailIcon name="plus" class="ml-auto size-4 group-open:hidden" /><DetailIcon
                   name="minus"
                   class="ml-auto hidden size-4 group-open:block"
                 />
               </summary>
-              <div class="pb-5 pl-8 text-sm leading-7 text-muted">
+              <div class="max-w-prose pb-5 text-sm leading-7 text-muted">
                 <div
                   v-if="section.html"
                   class="[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_img]:max-w-full"
@@ -567,7 +543,7 @@ watch(() => route.params.slug, loadProduct)
                 <ul v-if="section.list?.length" class="list-disc pl-4">
                   <li v-for="(item, index) in section.list" :key="index">{{ item }}</li>
                 </ul>
-                <dl v-if="section.entries?.length" class="space-y-3">
+                <dl v-if="section.entries?.length" class="flex flex-col gap-3">
                   <div
                     v-for="[label, value] in section.entries"
                     :key="label"
@@ -584,10 +560,10 @@ watch(() => route.params.slug, loadProduct)
       </section>
       <section
         v-if="relatedProducts.length"
-        class="mt-14 border-t border-line pt-9 sm:mt-20"
+        class="mt-12 border-t border-line pt-7 sm:mt-16"
         aria-labelledby="related-title"
       >
-        <h2 id="related-title" class="mb-6 text-xl font-semibold text-ink">
+        <h2 id="related-title" class="mb-5 text-lg font-semibold text-ink">
           {{ t('productDetail.similarItems') }}
         </h2>
         <ProductList :products="relatedProducts" />
@@ -601,7 +577,7 @@ watch(() => route.params.slug, loadProduct)
     >
       <button
         type="button"
-        class="absolute top-3 right-3 z-10 flex size-11 items-center justify-center rounded-full border border-line bg-white focus-visible:outline-2 focus-visible:outline-accent"
+        class="absolute top-3 right-3 flex size-11 items-center justify-center rounded-full border border-line bg-white focus-visible:outline-2 focus-visible:outline-accent"
         :aria-label="t('productDetail.closeZoom')"
         @click="galleryDialog.close()"
       >

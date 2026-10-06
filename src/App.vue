@@ -79,7 +79,7 @@ const clearBag = () => {
   itemPendingRemoval.value = null
 }
 const changeQuantity = (item, value) => {
-  const stock = Number(variantFor(item)?.stock_qty ?? Infinity)
+  const stock = Number(item.stockQty ?? variantFor(item)?.stock_qty ?? Infinity)
   if (Number(value) > stock) {
     setWarning(item.variantId, withStock('cart.onlyAvailable', stock))
     return
@@ -91,27 +91,25 @@ const changeVariant = (item, variantId) => {
     (candidate) => candidate.id === Number(variantId),
   )
   if (!variant || !variant.is_active || Number(variant.stock_qty) <= 0) return
+  const variantUpdates = {
+    variantId: variant.id,
+    variantName: variant.name,
+    price: Number(variant.discounted_price ?? variant.price),
+    originalPrice:
+      Number(variant.price) > Number(variant.discounted_price ?? variant.price)
+        ? Number(variant.price)
+        : null,
+    stockQty: Number(variant.stock_qty),
+  }
   const existing = cart.value.find((cartItem) => cartItem.variantId === variant.id)
   if (existing && existing.variantId !== item.variantId) {
-    if (
-      !mergeCartItem(
-        item.variantId,
-        {
-          variantId: variant.id,
-          variantName: variant.name,
-          price: Number(variant.discounted_price ?? variant.price),
-        },
-        Number(variant.stock_qty),
-      )
-    ) {
+    if (!mergeCartItem(item.variantId, variantUpdates, Number(variant.stock_qty))) {
       setWarning(item.variantId, withStock('cart.variantOnlyAvailable', variant.stock_qty))
     }
     return
   }
   updateCartItem(item.variantId, {
-    variantId: variant.id,
-    variantName: variant.name,
-    price: Number(variant.discounted_price ?? variant.price),
+    ...variantUpdates,
     quantity: Math.min(item.quantity, Number(variant.stock_qty)),
   })
 }

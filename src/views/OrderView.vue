@@ -140,7 +140,13 @@ onMounted(loadOrders)
             <path d="M5 12h14m-6-6 6 6-6 6" /></svg></RouterLink
       ></Button>
     </header>
-    <div v-if="isLoading" class="grid gap-5" aria-busy="true" :aria-label="t('orders.loading')">
+    <div
+      v-if="isLoading"
+      class="grid gap-5"
+      aria-busy="true"
+      role="status"
+      :aria-label="t('orders.loading')"
+    >
       <Card v-for="placeholder in 2" :key="placeholder"
         ><CardHeader><Skeleton class="h-5 w-40" /><Skeleton class="h-4 w-2/3" /></CardHeader
         ><CardContent class="grid gap-3"

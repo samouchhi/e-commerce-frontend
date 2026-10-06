@@ -8,6 +8,7 @@ defineProps({ count: { type: Number, default: 8 } })
   <div
     class="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4 sm:gap-x-6"
     aria-busy="true"
+    role="status"
     :aria-label="t('productDetail.loading')"
   >
     <div v-for="placeholder in count" :key="placeholder" class="grid min-w-0 gap-4">

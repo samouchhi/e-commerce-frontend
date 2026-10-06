@@ -103,6 +103,8 @@ export const mergeCartItem = (fromVariantId, toItem, maxStock) => {
   toItemInCart.quantity = combinedQuantity
   toItemInCart.variantName = toItem.variantName
   toItemInCart.price = toItem.price
+  if ('originalPrice' in toItem) toItemInCart.originalPrice = toItem.originalPrice
+  if ('stockQty' in toItem) toItemInCart.stockQty = toItem.stockQty
   cart.splice(cart.indexOf(fromItem), 1)
   saveCart(cart)
   return true

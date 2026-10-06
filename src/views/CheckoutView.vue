@@ -16,6 +16,7 @@ import { getProducts } from '../services/productService'
 import { t } from '../services/i18n'
 import { Button } from '../components/ui/button.js'
 import OrderCompleteDialog from '../components/checkout/OrderCompleteDialog.vue'
+import CartRowsSkeleton from '../components/CartRowsSkeleton.vue'
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group.js'
 import { getAddresses, deleteAddress } from '../services/addressService'
 import {
@@ -1165,137 +1166,157 @@ onUnmounted(() => {
           :title="t('checkout.checkoutPaused')"
           :description="t('checkout.fixCart')"
         />
-        <div class="grid gap-5">
-          <Empty v-if="!cart.length"
-            ><EmptyTitle>{{ t('checkout.cartEmpty') }}</EmptyTitle
-            ><EmptyDescription>{{ t('checkout.cartEmptyHelp') }}</EmptyDescription
-            ><Button as-child variant="outline"
-              ><RouterLink to="/products">{{ t('checkout.continueShopping') }}</RouterLink></Button
-            ></Empty
-          >
-          <article
-            v-for="item in cart"
-            :key="item.variantId"
-            :class="[
-              'grid min-w-0 grid-cols-[5rem_minmax(0,1fr)_auto] items-center gap-3 pt-1',
-              item.unavailable ? 'bg-[#fff9f7] px-3 pb-3' : '',
-            ]"
-          >
-            <div
-              class="flex size-20 items-center justify-center overflow-hidden rounded-2xl bg-accent-soft"
+        <div class="grid gap-5" :aria-busy="isRefreshingCart || isLoadingProducts">
+          <CartRowsSkeleton
+            v-if="isRefreshingCart || isLoadingProducts"
+            :count="cart.length || 2"
+          />
+          <template v-else>
+            <Empty v-if="!cart.length"
+              ><EmptyTitle>{{ t('checkout.cartEmpty') }}</EmptyTitle
+              ><EmptyDescription>{{ t('checkout.cartEmptyHelp') }}</EmptyDescription
+              ><Button as-child variant="outline"
+                ><RouterLink to="/products">{{
+                  t('checkout.continueShopping')
+                }}</RouterLink></Button
+              ></Empty
             >
-              <img
-                v-if="imageUrl(item) && !failedImages.has(`item-${item.variantId}`)"
-                @error="failedImages.add(`item-${item.variantId}`)"
-                class="h-full w-full object-contain"
-                :src="imageUrl(item)"
-                :alt="item.productName"
-              />
-              <span v-else class="px-2 text-center text-xs text-muted" aria-hidden="true">{{
-                t('checkout.noImage')
-              }}</span>
-            </div>
-            <div class="grid min-w-0 gap-[0.25rem]">
-              <div class="flex flex-wrap items-center gap-2">
-                <strong
-                  class="text-base leading-snug font-semibold text-ink [overflow-wrap:anywhere]"
-                  >{{ item.productName }}</strong
-                >
-                <span
-                  v-if="item.unavailable"
-                  class="bg-danger px-2 py-1 text-[0.52rem] font-bold text-white uppercase"
-                  >{{ t('checkout.unavailable') }}</span
-                >
-              </div>
-              <small
-                v-if="item.unavailable"
-                class="text-[0.68rem] leading-[1.4] text-[#7e271c]"
-                role="alert"
+            <article
+              v-for="item in cart"
+              :key="item.variantId"
+              :class="[
+                'grid min-w-0 grid-cols-[5rem_minmax(0,1fr)_auto] items-center gap-3 pt-1',
+                item.unavailable ? 'bg-[#fff9f7] px-3 pb-3' : '',
+              ]"
+            >
+              <div
+                class="flex size-20 items-center justify-center overflow-hidden rounded-2xl bg-accent-soft"
               >
-                {{ t('checkout.productUnavailable') }}
-              </small>
-              <label v-if="!item.unavailable" class="text-[1rem] text-muted uppercase">
-                <select
-                  class="select-chevron mt-2 min-h-11 max-w-full cursor-pointer rounded-xl bg-accent-soft py-2 pr-8 pl-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-                  :aria-label="`${t('checkout.productOption')}: ${item.productName}`"
-                  :value="item.variantId"
-                  @change="changeVariant(item, $event.target.value)"
-                >
-                  <option
-                    v-for="variant in productFor(item)?.variants || [
-                      { id: item.variantId, name: item.variantName },
-                    ]"
-                    :key="variant.id"
-                    :value="variant.id"
-                    :disabled="!variant.is_active || Number(variant.stock_qty) <= 0"
+                <img
+                  v-if="imageUrl(item) && !failedImages.has(`item-${item.variantId}`)"
+                  @error="failedImages.add(`item-${item.variantId}`)"
+                  class="h-full w-full object-contain"
+                  :src="imageUrl(item)"
+                  :alt="item.productName"
+                />
+                <span v-else class="px-2 text-center text-xs text-muted" aria-hidden="true">{{
+                  t('checkout.noImage')
+                }}</span>
+              </div>
+              <div class="grid min-w-0 gap-[0.25rem]">
+                <div class="flex flex-wrap items-center gap-2">
+                  <strong
+                    class="text-base leading-snug font-semibold text-ink [overflow-wrap:anywhere]"
+                    >{{ item.productName }}</strong
                   >
-                    {{ variant.name
-                    }}{{ Number(variant.stock_qty) <= 0 ? ` (${t('cart.outOfStock')})` : '' }}
-                  </option>
-                </select>
-              </label>
-            </div>
-            <div class="col-start-2 grid gap-1">
-              <div class="flex h-11 w-max items-center rounded-full bg-accent-soft">
-                <button
-                  class="flex h-full w-11 cursor-pointer items-center justify-center border-0 bg-transparent text-[1.15rem] text-ink enabled:hover:bg-accent-soft enabled:hover:text-accent disabled:cursor-not-allowed disabled:text-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-                  type="button"
-                  :aria-label="t('cart.decreaseQuantity')"
-                  :disabled="item.unavailable || item.quantity <= 1"
-                  @click="changeQuantity(item, item.quantity - 1)"
+                  <span
+                    v-if="item.unavailable"
+                    class="bg-danger px-2 py-1 text-[0.52rem] font-bold text-white uppercase"
+                    >{{ t('checkout.unavailable') }}</span
+                  >
+                </div>
+                <small
+                  v-if="item.unavailable"
+                  class="text-[0.68rem] leading-[1.4] text-[#7e271c]"
+                  role="alert"
                 >
-                  −
-                </button>
-                <span
-                  class="min-w-6 text-center text-sm font-semibold text-ink"
-                  aria-live="polite"
-                  >{{ item.quantity }}</span
-                >
-                <button
-                  class="flex h-full w-11 cursor-pointer items-center justify-center border-0 bg-transparent text-[1.15rem] text-ink enabled:hover:bg-accent-soft enabled:hover:text-accent disabled:cursor-not-allowed disabled:text-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-                  type="button"
-                  :aria-label="t('cart.increaseQuantity')"
-                  :disabled="
-                    item.unavailable ||
-                    item.quantity >= Number(variantFor(item)?.stock_qty ?? Infinity)
-                  "
-                  @click="changeQuantity(item, item.quantity + 1)"
-                >
-                  +
-                </button>
+                  {{ t('checkout.productUnavailable') }}
+                </small>
+                <label v-if="!item.unavailable" class="text-[1rem] text-muted uppercase">
+                  <select
+                    class="select-chevron mt-2 min-h-11 max-w-full cursor-pointer rounded-xl bg-accent-soft py-2 pr-8 pl-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                    :aria-label="`${t('checkout.productOption')}: ${item.productName}`"
+                    :value="item.variantId"
+                    @change="changeVariant(item, $event.target.value)"
+                  >
+                    <option
+                      v-for="variant in productFor(item)?.variants || [
+                        { id: item.variantId, name: item.variantName },
+                      ]"
+                      :key="variant.id"
+                      :value="variant.id"
+                      :disabled="!variant.is_active || Number(variant.stock_qty) <= 0"
+                    >
+                      {{ variant.name
+                      }}{{ Number(variant.stock_qty) <= 0 ? ` (${t('cart.outOfStock')})` : '' }}
+                    </option>
+                  </select>
+                </label>
               </div>
-            </div>
-            <div
-              class="col-start-3 row-start-2 grid justify-items-end gap-1 text-right whitespace-nowrap"
-            >
-              <b
-                :class="[
-                  'text-base font-bold',
-                  item.unavailable ? 'text-muted line-through' : 'text-sale',
-                ]"
-                >{{ formatPrice(lineTotal(item)) }}</b
+              <div class="col-start-2 grid gap-1">
+                <div class="flex h-11 w-max items-center rounded-full bg-accent-soft">
+                  <button
+                    class="flex h-full w-11 cursor-pointer items-center justify-center border-0 bg-transparent text-[1.15rem] text-ink enabled:hover:bg-accent-soft enabled:hover:text-accent disabled:cursor-not-allowed disabled:text-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                    type="button"
+                    :aria-label="t('cart.decreaseQuantity')"
+                    :disabled="item.unavailable || item.quantity <= 1"
+                    @click="changeQuantity(item, item.quantity - 1)"
+                  >
+                    −
+                  </button>
+                  <span
+                    class="min-w-6 text-center text-sm font-semibold text-ink"
+                    aria-live="polite"
+                    >{{ item.quantity }}</span
+                  >
+                  <button
+                    class="flex h-full w-11 cursor-pointer items-center justify-center border-0 bg-transparent text-[1.15rem] text-ink enabled:hover:bg-accent-soft enabled:hover:text-accent disabled:cursor-not-allowed disabled:text-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                    type="button"
+                    :aria-label="t('cart.increaseQuantity')"
+                    :disabled="
+                      item.unavailable ||
+                      item.quantity >= Number(variantFor(item)?.stock_qty ?? Infinity)
+                    "
+                    @click="changeQuantity(item, item.quantity + 1)"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div
+                class="col-start-3 row-start-2 grid justify-items-end gap-1 text-right whitespace-nowrap"
               >
-              <span v-if="item.originalPrice" class="text-[0.72rem] text-muted line-through">{{
-                formatPrice(item.originalPrice * item.quantity)
-              }}</span>
-            </div>
-          </article>
+                <b
+                  :class="[
+                    'text-base font-bold',
+                    item.unavailable ? 'text-muted line-through' : 'text-sale',
+                  ]"
+                  >{{ formatPrice(lineTotal(item)) }}</b
+                >
+                <span v-if="item.originalPrice" class="text-[0.72rem] text-muted line-through">{{
+                  formatPrice(item.originalPrice * item.quantity)
+                }}</span>
+              </div>
+            </article>
+          </template>
         </div>
         <Separator />
         <div :class="summaryRowClass">
           <span :class="summaryLabelClass">{{ t('checkout.subtotal') }}</span
-          ><strong :class="summaryValueClass">{{ formatPrice(subtotal) }}</strong>
+          ><Skeleton v-if="isRefreshingCart" class="h-6 w-16" /><strong
+            v-else
+            :class="summaryValueClass"
+            >{{ formatPrice(subtotal) }}</strong
+          >
         </div>
         <p v-if="unavailableItems.length" class="m-0 text-sm leading-relaxed text-muted">
           {{ t('cart.unavailableExcluded') }}
         </p>
         <div :class="summaryRowClass">
           <span :class="summaryLabelClass">{{ t('checkout.delivery') }}</span
-          ><strong :class="summaryValueClass">{{ formatPrice(deliveryFee) }}</strong>
+          ><Skeleton v-if="isLoadingLogistics" class="h-6 w-16" /><strong
+            v-else
+            :class="summaryValueClass"
+            >{{ formatPrice(deliveryFee) }}</strong
+          >
         </div>
         <div :class="[summaryRowClass, 'mt-1 pt-2']">
           <span :class="summaryLabelClass">{{ t('checkout.total') }}</span
-          ><strong class="text-2xl font-semibold text-sale">{{ formatPrice(total) }}</strong>
+          ><Skeleton v-if="isRefreshingCart || isLoadingLogistics" class="h-8 w-24" /><strong
+            v-else
+            class="text-2xl font-semibold text-sale"
+            >{{ formatPrice(total) }}</strong
+          >
         </div>
         <CheckoutFeedback
           v-if="errorMessage && !isSubmitted"
