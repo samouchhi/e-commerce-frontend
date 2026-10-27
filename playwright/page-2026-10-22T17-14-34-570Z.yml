@@ -1,0 +1,110 @@
+- generic [ref=f6e1]:
+  - generic [ref=f6e2]:
+    - link "Skip to content" [ref=f6e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=f6e4]:
+      - generic [ref=f6e5]:
+        - link "MongKol home" [ref=f6e93] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f6e94]: MongKol
+        - search [ref=f6e6]:
+          - generic [ref=f6e7]: Search
+          - searchbox "Search" [ref=f6e11]
+          - button "Search" [ref=f6e12] [cursor=pointer]
+        - generic [ref=f6e16]:
+          - button "English / ខ្មែរ" [ref=f6e18] [cursor=pointer]
+          - button "More navigation" [ref=f6e23] [cursor=pointer]
+          - button "Your bag, 0 items" [ref=f6e24] [cursor=pointer]
+    - main [ref=f6e27]:
+      - navigation "Breadcrumbs" [ref=f6e28]:
+        - link "Home" [ref=f6e29] [cursor=pointer]:
+          - /url: /
+        - link "ទឹកត្រចៀកកាំ" [ref=f6e95] [cursor=pointer]:
+          - /url: /products?category=1
+        - generic [ref=f6e98]: ទឹកត្រចៀកកាំ Premium Set
+      - region [ref=f6e99]:
+        - generic [ref=f6e101]:
+          - button "View larger image" [ref=f6e102]:
+            - img "ទឹកត្រចៀកកាំ Premium Set" [ref=f6e103]
+          - button "View larger image" [ref=f6e104]
+        - generic [ref=f6e107]:
+          - heading "ទឹកត្រចៀកកាំ Premium Set" [level=1] [ref=f6e108]
+          - paragraph [ref=f6e111]: $30.00
+          - status [ref=f6e112]: In stock
+          - group "Options" [ref=f6e115]:
+            - group "Options" [ref=f6e117]:
+              - button "4 Pieces" [active] [pressed] [ref=f6e118] [cursor=pointer]
+              - button "6 Pieces" [ref=f6e120] [cursor=pointer]
+              - button "12 Pieces" [ref=f6e122] [cursor=pointer]
+          - separator [ref=f6e124]
+          - generic [ref=f6e125]:
+            - generic [ref=f6e126]:
+              - generic [ref=f6e127]: Quantity
+              - group "Quantity" [ref=f6e128]:
+                - button "Decrease quantity" [disabled] [ref=f6e129]
+                - generic [ref=f6e131]: "1"
+                - button "Increase quantity" [ref=f6e132] [cursor=pointer]
+            - generic [ref=f6e135]:
+              - button "Add to cart" [ref=f6e136] [cursor=pointer]
+              - button "Buy now" [ref=f6e137] [cursor=pointer]
+      - region "Description" [ref=f6e138]:
+        - generic [ref=f6e139]:
+          - tablist [ref=f6e140]:
+            - tab "Specifications" [selected] [ref=f6e141] [cursor=pointer]
+          - tabpanel "Specifications" [ref=f6e144]:
+            - heading "Specifications" [level=2] [ref=f6e145]
+            - generic [ref=f6e147]:
+              - generic [ref=f6e148]:
+                - term [ref=f6e149]: Product code
+                - definition [ref=f6e150]: "7143179"
+              - generic [ref=f6e151]:
+                - term [ref=f6e152]: Unit
+                - definition [ref=f6e153]: Pieces
+      - region [ref=f6e154]:
+        - heading [level=2] [ref=f6e155]
+        - article [ref=f6e160]:
+          - link "ទឹកត្រចៀកកាំ" [ref=f6e161] [cursor=pointer]:
+            - /url: /products/3732496
+            - img "ទឹកត្រចៀកកាំ" [ref=f6e162]
+          - generic [ref=f6e163]:
+            - heading [level=3] [ref=f6e164]:
+              - link "ទឹកត្រចៀកកាំ" [ref=f6e165] [cursor=pointer]:
+                - /url: /products/3732496
+            - generic [ref=f6e166]:
+              - generic [ref=f6e167]: From$15.00
+              - button "Choose options" [ref=f6e169] [cursor=pointer]:
+                - generic [ref=f6e170]: Options
+    - contentinfo [ref=f6e39]:
+      - generic [ref=f6e40]:
+        - generic [ref=f6e41]:
+          - link "MongKol" [ref=f6e171] [cursor=pointer]:
+            - /url: /
+          - generic "We Accept" [ref=f6e42]:
+            - img "ABA KHQR / Bakong" [ref=f6e43]
+            - generic [ref=f6e44]: ABA KHQR / Bakong
+        - navigation "Quick Links" [ref=f6e45]:
+          - link "Home" [ref=f6e46] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f6e49] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f6e52] [cursor=pointer]:
+            - /url: /promotion
+          - link "Category" [ref=f6e55] [cursor=pointer]:
+            - /url: /categories
+          - link "About Us" [ref=f6e58] [cursor=pointer]:
+            - /url: /about
+        - link "support@chhin.tech" [ref=f6e174] [cursor=pointer]:
+          - /url: mailto:support@chhin.tech
+      - paragraph [ref=f6e63]: © 2026 MongKol
+    - navigation "More navigation" [ref=f6e64]:
+      - link "Home" [ref=f6e65] [cursor=pointer]:
+        - /url: /
+      - link "Products" [ref=f6e69] [cursor=pointer]:
+        - /url: /products
+      - link "Promotions" [ref=f6e73] [cursor=pointer]:
+        - /url: /promotion
+      - link "Profile" [ref=f6e77] [cursor=pointer]:
+        - /url: /login
+  - generic [ref=f6e81]:
+    - generic "Toggle devtools panel" [ref=f6e82] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f6e88] [cursor=pointer]

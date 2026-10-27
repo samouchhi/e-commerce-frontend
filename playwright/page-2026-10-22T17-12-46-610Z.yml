@@ -1,0 +1,50 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - link "Skip to content" [ref=f2e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=f2e4]:
+      - generic [ref=f2e5]:
+        - link "home":
+          - /url: /
+        - search [ref=f2e6]:
+          - generic [ref=f2e7]: Search
+          - searchbox "Search" [ref=f2e11]
+          - button "Search" [ref=f2e12] [cursor=pointer]
+        - navigation "More navigation" [ref=f2e16]:
+          - link "Home" [ref=f2e17] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f2e21] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f2e27] [cursor=pointer]:
+            - /url: /promotion
+          - button "Category" [ref=f2e32] [cursor=pointer]
+        - generic [ref=f2e37]:
+          - button "English / ខ្មែរ" [ref=f2e39] [cursor=pointer]
+          - button "Open profile menu" [ref=f2e44] [cursor=pointer]
+          - button "Your bag, 0 items" [ref=f2e48] [cursor=pointer]
+    - main [ref=f2e51]:
+      - heading "MONGKOL" [level=1] [ref=f2e52]
+      - status "Loading product" [ref=f2e56]
+    - contentinfo [ref=f2e121]:
+      - generic [ref=f2e122]:
+        - generic [ref=f2e123]:
+          - link:
+            - /url: /
+          - generic "We Accept" [ref=f2e124]:
+            - img "ABA KHQR / Bakong" [ref=f2e125]
+            - generic [ref=f2e126]: ABA KHQR / Bakong
+        - navigation "Quick Links" [ref=f2e127]:
+          - link "Home" [ref=f2e128] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f2e131] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f2e134] [cursor=pointer]:
+            - /url: /promotion
+          - link "Category" [ref=f2e137] [cursor=pointer]:
+            - /url: /categories
+          - link "About Us" [ref=f2e140] [cursor=pointer]:
+            - /url: /about
+      - paragraph [ref=f2e145]: © 2026
+  - generic [ref=f2e146]:
+    - generic "Toggle devtools panel" [ref=f2e147] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f2e153] [cursor=pointer]

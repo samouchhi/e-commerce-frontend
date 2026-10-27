@@ -1,59 +1,24 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
-import ProductList from '../components/product/ProductList.vue'
+import { RouterLink } from 'vue-router'
+import StoreHero from '../components/layout/StoreHero.vue'
+import ProductCatalogue from '../components/product/ProductCatalogue.vue'
 import ProductGridSkeleton from '../components/product/ProductGridSkeleton.vue'
-import { Button } from '../components/ui/button.js'
-import { Badge } from '../components/ui/badge.js'
-import { Field, FieldGroup, FieldLabel } from '../components/ui/field.js'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  NativeSelect,
-} from '../components/ui/input.js'
-import { Alert, AlertTitle, Empty, EmptyTitle } from '../components/ui/feedback.js'
+import { Button } from '../components/ui/button'
+import { Alert, AlertTitle, Skeleton } from '../components/ui/feedback'
 import { getCategories } from '../services/categoryService'
 import { getProducts } from '../services/productService'
+import { getBanners } from '../services/bannerService'
 import { t } from '../services/i18n'
+import StoreIcon from '../components/icons/StoreIcon.vue'
 
-const route = useRoute()
-const router = useRouter()
 const products = ref([])
 const categories = ref([])
+const banners = ref([])
+const bannersLoading = ref(true)
 const loading = ref(true)
 const error = ref('')
-const searchQuery = ref('')
-const sortBy = ref('best-seller')
-const sortOptions = computed(() => [
-  { value: 'best-seller', label: t('products.bestSeller') },
-  { value: 'new-arrival', label: t('products.newArrival') },
-  { value: 'name-asc', label: t('products.nameAsc') },
-  { value: 'name-desc', label: t('products.nameDesc') },
-])
-const selectedCategory = computed(() =>
-  route.query.category ? Number(route.query.category) : null,
-)
-const filteredProducts = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase()
-  const visibleProducts = products.value.filter(
-    (product) =>
-      (selectedCategory.value === null || product.category?.id === selectedCategory.value) &&
-      (!query || product.name.toLocaleLowerCase().includes(query)),
-  )
-  if (sortBy.value === 'new-arrival') return visibleProducts
-  return [...visibleProducts].sort((first, second) => {
-    if (sortBy.value === 'name-desc') return second.name.localeCompare(first.name)
-    if (sortBy.value === 'best-seller')
-      return Number(second.is_best_seller) - Number(first.is_best_seller)
-    return first.name.localeCompare(second.name)
-  })
-})
-const clearFilters = () => {
-  searchQuery.value = ''
-  sortBy.value = 'best-seller'
-  router.replace('/products')
-}
+const heroImage = computed(() => banners.value[0]?.image)
 const loadProducts = async () => {
   loading.value = true
   error.value = ''
@@ -68,98 +33,67 @@ const loadProducts = async () => {
 onMounted(() => {
   window.scrollTo(0, 0)
   loadProducts()
+  getBanners()
+    .then((value) => {
+      banners.value = value
+    })
+    .catch(() => {})
+    .finally(() => {
+      bannersLoading.value = false
+    })
 })
 </script>
 
 <template>
-  <main class="mx-auto max-w-[1200px] px-5 py-8 sm:px-8 sm:py-12 lg:px-12">
-    <header class="mb-8 flex flex-wrap items-center gap-3 sm:mb-10">
-      <h1 class="m-0">{{ t('products.title') }}</h1>
-      <Badge v-if="!loading && !error" variant="secondary" role="status">{{
-        t('products.resultCount').replace('{count}', filteredProducts.length)
-      }}</Badge>
-    </header>
-    <FieldGroup class="mb-5 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,15rem)]">
-      <Field>
-        <FieldLabel for="product-search" class="sr-only">{{ t('products.search') }}</FieldLabel>
-        <InputGroup>
-          <InputGroupAddon
-            ><svg
-              class="size-5 fill-none stroke-current stroke-[1.5]"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <circle cx="10.5" cy="10.5" r="6.5" />
-              <path d="m16 16 4.5 4.5" /></svg
-          ></InputGroupAddon>
-          <InputGroupInput
-            id="product-search"
-            v-model="searchQuery"
-            type="search"
-            :placeholder="t('products.search')"
-          />
-        </InputGroup>
-      </Field>
-      <Field>
-        <FieldLabel for="product-sort" class="sr-only">{{ t('products.sort') }}</FieldLabel>
-        <NativeSelect id="product-sort" v-model="sortBy"
-          ><option v-for="option in sortOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option></NativeSelect
-        >
-      </Field>
-    </FieldGroup>
-    <nav
-      v-if="!loading && !error && categories.length"
-      class="mb-8 flex flex-wrap gap-2"
-      :aria-label="t('products.shopByCategory')"
+  <main
+    id="main-content"
+    tabindex="-1"
+    class="store-container pb-16 pt-6"
+    :aria-busy="loading || bannersLoading"
+  >
+    <div
+      class="grid items-center gap-5 rounded-2xl bg-paper p-5 sm:p-7 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
     >
-      <Button
-        as-child
-        :variant="selectedCategory === null ? 'default' : 'outline'"
-        class="min-h-11 rounded-full"
+      <div>
+        <h1 class="!mt-0 !mb-5">{{ t('store.productsTitle') }}</h1>
+        <nav class="flex flex-wrap gap-3" :aria-label="t('store.quickLinks')">
+          <RouterLink to="/categories" class="store-section-link"
+            ><StoreIcon name="grid" class="size-4" />{{ t('nav.category') }}</RouterLink
+          >
+          <RouterLink to="/promotion" class="store-section-link"
+            ><StoreIcon name="tag" class="size-4" />{{ t('nav.promotions') }}</RouterLink
+          >
+        </nav>
+      </div>
+      <div
+        v-if="bannersLoading"
+        role="status"
+        :aria-label="t('productDetail.loading')"
+        aria-busy="true"
       >
-        <RouterLink
-          to="/products"
-          replace
-          :aria-current="selectedCategory === null ? 'page' : undefined"
-          >{{ t('products.all') }}</RouterLink
-        >
-      </Button>
-      <Button
-        v-for="category in categories"
-        :key="category.id"
-        as-child
-        :variant="selectedCategory === category.id ? 'default' : 'outline'"
-        class="h-auto min-h-11 max-w-full rounded-full whitespace-normal text-left"
-      >
-        <RouterLink
-          :to="{ path: '/products', query: { category: String(category.id) } }"
-          replace
-          :aria-current="selectedCategory === category.id ? 'page' : undefined"
-          >{{ category.name }}</RouterLink
-        >
-      </Button>
+        <Skeleton class="aspect-video rounded-xl" />
+      </div>
+      <StoreHero v-else :image="heroImage" :alt="banners[0]?.title || t('store.productsTitle')" />
+    </div>
+    <nav
+      class="mt-4 flex items-center gap-3 text-xs text-muted"
+      :aria-label="t('productDetail.breadcrumbs')"
+    >
+      <RouterLink
+        to="/"
+        class="inline-flex min-h-11 items-center text-accent focus-visible:outline-2 focus-visible:outline-accent"
+        :aria-label="t('nav.home')"
+        :title="t('nav.home')"
+        ><StoreIcon name="home" class="size-4" /></RouterLink
+      ><span aria-hidden="true">›</span><span aria-current="page">{{ t('nav.products') }}</span>
     </nav>
-    <section aria-live="polite">
-      <ProductGridSkeleton v-if="loading" />
-      <Alert v-else-if="error" class="border-danger-line bg-danger-soft"
-        ><AlertTitle>{{ error }}</AlertTitle
-        ><Button type="button" variant="outline" class="mt-4" @click="loadProducts">{{
-          t('productDetail.retry')
-        }}</Button></Alert
-      >
-      <Empty v-else-if="!filteredProducts.length" class="min-h-64 rounded-2xl">
-        <EmptyTitle>{{ products.length ? t('products.noMatch') : t('products.empty') }}</EmptyTitle>
-        <Button
-          v-if="products.length"
-          variant="outline"
-          class="mt-2 rounded-full"
-          @click="clearFilters"
-          >{{ t('products.clearFilters') }}</Button
-        >
-      </Empty>
-      <ProductList v-else :products="filteredProducts" />
-    </section>
+    <ProductGridSkeleton v-if="loading" class="mt-6" />
+    <Alert v-else-if="error" class="mt-6 border-danger-line bg-danger-soft"
+      ><AlertTitle>{{ error }}</AlertTitle
+      ><Button variant="outline" class="mt-4" @click="loadProducts">{{
+        t('productDetail.retry')
+      }}</Button></Alert
+    >
+    <ProductCatalogue v-else :products="products" :categories="categories" />
   </main>
 </template>

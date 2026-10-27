@@ -6,16 +6,19 @@ defineProps({ count: { type: Number, default: 8 } })
 
 <template>
   <div
-    class="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4 sm:gap-x-6"
+    class="store-product-grid"
     aria-busy="true"
     role="status"
     :aria-label="t('productDetail.loading')"
   >
-    <div v-for="placeholder in count" :key="placeholder" class="grid min-w-0 gap-4">
-      <Skeleton class="aspect-square rounded-2xl" />
-      <div class="grid gap-2">
+    <div v-for="placeholder in count" :key="placeholder" class="store-product-placeholder">
+      <Skeleton class="store-product-image" />
+      <div class="store-product-body">
         <Skeleton class="h-4 w-3/4" />
-        <Skeleton class="h-4 w-1/3" />
+        <Skeleton class="h-4 w-1/2" />
+        <div class="store-product-purchase">
+          <Skeleton class="h-6 w-20" /><Skeleton class="h-11 w-full rounded-xl" />
+        </div>
       </div>
     </div>
   </div>

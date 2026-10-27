@@ -2,64 +2,75 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getCategories } from '../services/categoryService'
+import { getProducts } from '../services/productService'
+import CategoryCard from '../components/product/CategoryCard.vue'
 import { t } from '../services/i18n'
-import { Skeleton } from '../components/ui/feedback.js'
-
-const catalogClass =
-  'mx-auto max-w-[1200px] px-[clamp(1.25rem,4vw,4.5rem)] py-[clamp(1.25rem,2.5vw,2rem)]'
-const introClass = 'max-w-[680px] pb-[clamp(1.25rem,2.5vw,2rem)]'
-const leadClass = 'mb-[0.35rem] max-w-[370px] text-[1.05rem] text-muted'
-const gridClass = 'grid grid-cols-2 gap-[0.85rem] md:grid-cols-4 md:gap-5'
-const statusClass = 'col-span-full py-8 text-[0.9rem] text-muted'
-const tileBase =
-  'group relative flex min-h-[8.5rem] flex-col justify-end gap-[0.35rem] border p-4 no-underline transition-[background-color,border-color,color] duration-200 focus-visible:outline-solid focus-visible:outline-[3px] focus-visible:outline-offset-[2px] focus-visible:outline-accent motion-reduce:transition-none'
-const tileClass = `${tileBase} border-line bg-accent-soft text-ink hover:border-accent hover:bg-accent hover:text-white`
+import { Button } from '../components/ui/button'
+import { Alert, AlertTitle, Empty, EmptyTitle, Skeleton } from '../components/ui/feedback'
+import StoreIcon from '../components/icons/StoreIcon.vue'
 
 const categories = ref([])
+const products = ref([])
 const loading = ref(true)
-const error = ref('')
-
-onMounted(async () => {
+const error = ref(false)
+const load = async () => {
+  loading.value = true
+  error.value = false
   try {
-    categories.value = await getCategories()
-  } catch (requestError) {
-    error.value = requestError.message || 'Unable to load the categories.'
+    const [categoryResult, productResult] = await Promise.allSettled([
+      getCategories(),
+      getProducts(),
+    ])
+    if (categoryResult.status === 'rejected') throw categoryResult.reason
+    categories.value = categoryResult.value
+    products.value = productResult.status === 'fulfilled' ? productResult.value : []
+  } catch {
+    error.value = true
   } finally {
     loading.value = false
   }
-})
+}
+onMounted(load)
 </script>
 
 <template>
-  <main :class="catalogClass">
-    <section aria-live="polite">
+  <main id="main-content" tabindex="-1" class="store-container py-8 pb-16 sm:py-12">
+    <header class="mb-8 flex items-center justify-between gap-4">
+      <div class="store-page-heading">
+        <h1 class="!m-0">{{ t('products.shopByCategory') }}</h1>
+      </div>
+      <Button as-child variant="outline" size="icon" class="shrink-0">
+        <RouterLink to="/products" :aria-label="t('nav.products')" :title="t('nav.products')"
+          ><StoreIcon name="bag"
+        /></RouterLink>
+      </Button>
+    </header>
+    <section :aria-busy="loading" :aria-label="t('nav.category')">
       <div
         v-if="loading"
-        :class="gridClass"
-        aria-busy="true"
+        class="store-category-grid"
         role="status"
-        aria-label="Loading categories"
+        :aria-label="t('productDetail.loading')"
       >
-        <Skeleton v-for="placeholder in 4" :key="placeholder" class="min-h-[8.5rem] rounded-none" />
+        <Skeleton v-for="n in 4" :key="n" class="h-40 rounded-xl" />
       </div>
-      <p v-else-if="error" :class="[statusClass, 'text-danger']">{{ error }}</p>
-      <p v-else-if="!categories.length" :class="statusClass">{{ t('categories.empty') }}</p>
-      <div v-else :class="gridClass">
-        <RouterLink
+      <Alert v-else-if="error" variant="error">
+        <AlertTitle>{{ t('categories.loadError') }}</AlertTitle>
+        <Button variant="outline" class="mt-4" @click="load"
+          ><StoreIcon name="refresh" />{{ t('productDetail.retry') }}</Button
+        >
+      </Alert>
+      <Empty v-else-if="!categories.length" class="min-h-64">
+        <span class="store-icon-tile"><StoreIcon name="grid" class="size-5" /></span>
+        <EmptyTitle>{{ t('categories.empty') }}</EmptyTitle>
+      </Empty>
+      <div v-else class="store-category-grid">
+        <CategoryCard
           v-for="category in categories"
           :key="category.id"
-          :class="tileClass"
-          :to="{ path: '/products', query: { category: category.id } }"
-        >
-          <span class="text-[1.25rem] leading-[1.1] font-semibold [overflow-wrap:anywhere]">{{
-            category.name
-          }}</span>
-          <span
-            class="text-[0.6rem] font-bold tracking-[0.08em] uppercase opacity-[0.72] group-hover:opacity-[0.86]"
-          >
-            {{ category.products?.length || 0 }} {{ t('categories.items') }}
-          </span>
-        </RouterLink>
+          :category="category"
+          :products="products"
+        />
       </div>
     </section>
   </main>

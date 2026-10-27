@@ -1,0 +1,64 @@
+- generic [active] [ref=f7e1]:
+  - generic [ref=f7e2]:
+    - link "Skip to content" [ref=f7e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=f7e4]:
+      - generic [ref=f7e5]:
+        - link "home":
+          - /url: /
+        - search [ref=f7e6]:
+          - generic [ref=f7e7]: Search
+          - searchbox "Search" [ref=f7e11]
+          - button "Search" [ref=f7e12] [cursor=pointer]
+        - generic [ref=f7e16]:
+          - button "English / ខ្មែរ" [ref=f7e18] [cursor=pointer]
+          - button "More navigation" [ref=f7e23] [cursor=pointer]
+          - button "Your bag, 0 items" [ref=f7e24] [cursor=pointer]
+    - main [ref=f7e27]:
+      - generic [ref=f7e28]:
+        - generic [ref=f7e29]:
+          - heading "Our Products" [level=1] [ref=f7e33]
+          - navigation "Quick Links" [ref=f7e34]:
+            - link "Category" [ref=f7e35] [cursor=pointer]:
+              - /url: /categories
+            - link "Promotions" [ref=f7e38] [cursor=pointer]:
+              - /url: /promotion
+        - status "Loading product" [ref=f7e41]
+      - navigation "Breadcrumbs" [ref=f7e43]:
+        - link "Home" [ref=f7e44] [cursor=pointer]:
+          - /url: /
+        - generic [aria-hidden] [ref=f7e47]: ›
+        - generic [ref=f7e48]: Products
+      - status "Loading product" [ref=f7e49]
+    - contentinfo [ref=f7e114]:
+      - generic [ref=f7e115]:
+        - generic [ref=f7e116]:
+          - link:
+            - /url: /
+          - generic "We Accept" [ref=f7e117]:
+            - img "ABA KHQR / Bakong" [ref=f7e118]
+            - generic [ref=f7e119]: ABA KHQR / Bakong
+        - navigation "Quick Links" [ref=f7e120]:
+          - link "Home" [ref=f7e121] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f7e124] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f7e127] [cursor=pointer]:
+            - /url: /promotion
+          - link "Category" [ref=f7e130] [cursor=pointer]:
+            - /url: /categories
+          - link "About Us" [ref=f7e133] [cursor=pointer]:
+            - /url: /about
+      - paragraph [ref=f7e138]: © 2026
+    - navigation "More navigation" [ref=f7e139]:
+      - link "Home" [ref=f7e140] [cursor=pointer]:
+        - /url: /
+      - link "Products" [ref=f7e144] [cursor=pointer]:
+        - /url: /products
+      - link "Promotions" [ref=f7e148] [cursor=pointer]:
+        - /url: /promotion
+      - link "Profile" [ref=f7e152] [cursor=pointer]:
+        - /url: /login
+  - generic [ref=f7e156]:
+    - generic "Toggle devtools panel" [ref=f7e157] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f7e163] [cursor=pointer]

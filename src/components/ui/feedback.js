@@ -53,7 +53,7 @@ export const Skeleton = primitive(
 )
 export const Empty = primitive(
   'div',
-  'flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-line p-6 text-center',
+  'flex flex-col items-center justify-center gap-3 rounded-2xl bg-paper p-8 text-center',
 )
 export const EmptyTitle = primitive('h3', 'm-0 text-sm font-semibold text-ink')
 export const EmptyDescription = primitive('p', 'm-0 text-sm leading-relaxed text-muted')
