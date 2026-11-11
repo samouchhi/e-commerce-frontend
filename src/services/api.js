@@ -17,6 +17,7 @@ const request = async (path, options = {}) => {
       ...options.headers,
     },
   })
+  if (response.status === 204) return null
   const contentType = response.headers.get('content-type') || ''
   const responseBody = contentType.includes('application/json')
     ? await response.json()
@@ -28,6 +29,17 @@ const request = async (path, options = {}) => {
         ? responseBody
         : responseBody.message || `Request failed with status ${response.status}`,
     )
+    // A late failure from an old token must not clear a newly signed-in session.
+    if (
+      response.status === 401 &&
+      token &&
+      localStorage.getItem('auth-token') === token &&
+      !['/api/login', '/api/register', '/api/verify-otp', '/api/reset-password'].includes(path)
+    ) {
+      localStorage.removeItem('auth-token')
+      localStorage.removeItem('auth-user')
+      window.dispatchEvent(new Event('auth-updated'))
+    }
     error.status = response.status
     error.details = typeof responseBody === 'string' ? null : responseBody
     throw error

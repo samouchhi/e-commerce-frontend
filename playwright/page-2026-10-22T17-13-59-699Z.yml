@@ -1,0 +1,66 @@
+- generic [ref=f3e1]:
+  - generic [ref=f3e2]:
+    - link "Skip to content" [ref=f3e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=f3e4]:
+      - generic [ref=f3e5]:
+        - link "MongKol home" [ref=f3e175] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f3e176]: MongKol
+        - search [ref=f3e6]:
+          - generic [ref=f3e7]: Search
+          - searchbox "Search" [ref=f3e11]: Premium
+          - button "Search" [ref=f3e12] [cursor=pointer]
+        - navigation "More navigation" [ref=f3e16]:
+          - link "Home" [ref=f3e17] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f3e21] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f3e27] [cursor=pointer]:
+            - /url: /promotion
+          - button "Category" [ref=f3e32] [cursor=pointer]
+        - generic [ref=f3e37]:
+          - button "English / ខ្មែរ" [ref=f3e39] [cursor=pointer]
+          - button "Open profile menu" [ref=f3e44] [cursor=pointer]
+          - button "Your bag, 0 items" [ref=f3e48] [cursor=pointer]
+    - main [active] [ref=f3e322]:
+      - generic [ref=f3e323]:
+        - generic [ref=f3e324]:
+          - heading "Our Products" [level=1] [ref=f3e328]
+          - navigation "Quick Links" [ref=f3e329]:
+            - link "Category" [ref=f3e330] [cursor=pointer]:
+              - /url: /categories
+            - link "Promotions" [ref=f3e333] [cursor=pointer]:
+              - /url: /promotion
+        - status "Loading product" [ref=f3e336]
+      - navigation "Breadcrumbs" [ref=f3e338]:
+        - link "Home" [ref=f3e339] [cursor=pointer]:
+          - /url: /
+        - generic [aria-hidden] [ref=f3e342]: ›
+        - generic [ref=f3e343]: Products
+      - status "Loading product" [ref=f3e344]
+    - contentinfo [ref=f3e138]:
+      - generic [ref=f3e139]:
+        - generic [ref=f3e140]:
+          - link "MongKol" [ref=f3e234] [cursor=pointer]:
+            - /url: /
+          - generic "We Accept" [ref=f3e141]:
+            - img "ABA KHQR / Bakong" [ref=f3e142]
+            - generic [ref=f3e143]: ABA KHQR / Bakong
+        - navigation "Quick Links" [ref=f3e144]:
+          - link "Home" [ref=f3e145] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f3e148] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f3e151] [cursor=pointer]:
+            - /url: /promotion
+          - link "Category" [ref=f3e154] [cursor=pointer]:
+            - /url: /categories
+          - link "About Us" [ref=f3e157] [cursor=pointer]:
+            - /url: /about
+        - link "support@chhin.tech" [ref=f3e237] [cursor=pointer]:
+          - /url: mailto:support@chhin.tech
+      - paragraph [ref=f3e162]: © 2026 MongKol
+  - generic [ref=f3e163]:
+    - generic "Toggle devtools panel" [ref=f3e164] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f3e170] [cursor=pointer]

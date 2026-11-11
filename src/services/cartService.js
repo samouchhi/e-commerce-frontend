@@ -30,9 +30,7 @@ export const resolveCart = async () => {
       })),
     }),
   })
-  const itemsByVariantId = new Map(
-    resolved.items.map((item) => [item.product_variant_id, item]),
-  )
+  const itemsByVariantId = new Map(resolved.items.map((item) => [item.product_variant_id, item]))
 
   saveCart(
     cart.map((item) => {
@@ -62,7 +60,7 @@ export const resolveCart = async () => {
 
 export const clearCart = () => saveCart([])
 
-export const addToCart = (item) => {
+export const addToCart = (item, { openBag = true } = {}) => {
   const cart = readCart()
   const existing = cart.find((cartItem) => cartItem.variantId === item.variantId)
   const quantity =
@@ -70,7 +68,7 @@ export const addToCart = (item) => {
   if (existing) existing.quantity += quantity
   else cart.push({ ...item, quantity })
   saveCart(cart)
-  window.dispatchEvent(new Event('cart-item-added'))
+  if (openBag) window.dispatchEvent(new Event('cart-item-added'))
 }
 
 export const updateCartQuantity = (variantId, quantity, maxStock = Infinity) => {
@@ -105,6 +103,8 @@ export const mergeCartItem = (fromVariantId, toItem, maxStock) => {
   toItemInCart.quantity = combinedQuantity
   toItemInCart.variantName = toItem.variantName
   toItemInCart.price = toItem.price
+  if ('originalPrice' in toItem) toItemInCart.originalPrice = toItem.originalPrice
+  if ('stockQty' in toItem) toItemInCart.stockQty = toItem.stockQty
   cart.splice(cart.indexOf(fromItem), 1)
   saveCart(cart)
   return true

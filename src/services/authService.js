@@ -56,6 +56,18 @@ export const resendOtp = (email) =>
     body: JSON.stringify({ email }),
   })
 
+export const forgotPassword = (email) =>
+  api.request('/api/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+
+export const resetPassword = (credentials) =>
+  api.request('/api/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  })
+
 export const logout = async () => {
   try {
     await api.request('/api/logout', { method: 'POST' })
@@ -64,6 +76,55 @@ export const logout = async () => {
     localStorage.removeItem(USER_KEY)
     notifyAuthChange()
   }
+}
+
+export const clearSession = () => {
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(USER_KEY)
+  notifyAuthChange()
+}
+
+// A stored token is a candidate session; the server decides whether it is valid.
+export const validateSession = async () => {
+  const token = getToken()
+  if (!token) {
+    const error = new Error('Sign in to continue.')
+    error.status = 401
+    throw error
+  }
+  try {
+    const user = await api.request('/api/user')
+    if (getToken() !== token) {
+      const error = new Error('Your session changed. Please try again.')
+      error.status = 401
+      throw error
+    }
+    if (!user?.id) throw new Error('Unable to verify your account.')
+    localStorage.setItem(USER_KEY, JSON.stringify(user))
+    notifyAuthChange()
+    return user
+  } catch (error) {
+    if ([401, 403].includes(error.status) && getToken() === token) clearSession()
+    throw error
+  }
+}
+
+export const changePassword = async (credentials) => {
+  const token = getToken()
+  const result = await api.request('/api/change-password', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  })
+  if (getToken() === token) clearSession()
+  return result
+}
+
+export const safeReturnPath = (value, fallback = '/checkout') => {
+  if (typeof value !== 'string' || /[\\\u0000-\u001f]/.test(value)) return fallback
+  const path = value.split(/[?#]/)[0]
+  return ['/checkout', '/orders', '/change-password', '/', '/products'].includes(path)
+    ? value
+    : fallback
 }
 
 export { getToken, getUser, isAuthenticated }

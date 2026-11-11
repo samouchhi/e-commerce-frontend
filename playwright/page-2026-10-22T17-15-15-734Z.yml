@@ -1,0 +1,175 @@
+- generic:
+  - generic [aria-hidden]:
+    - link [aria-hidden]:
+      - /url: "#main-content"
+      - text: Skip to content
+    - banner [aria-hidden]:
+      - generic:
+        - link:
+          - /url: /
+          - generic: MongKol
+        - search:
+          - generic: Search
+          - searchbox
+          - button
+        - generic:
+          - generic:
+            - button
+          - generic:
+            - button
+          - button [expanded]:
+            - generic: "1"
+    - main:
+      - navigation [aria-hidden]:
+        - link:
+          - /url: /
+          - text: Home
+        - link:
+          - /url: /products?category=1
+          - text: ទឹកត្រចៀកកាំ
+        - generic: ទឹកត្រចៀកកាំ Premium Set
+      - region:
+        - generic [aria-hidden]:
+          - generic:
+            - button
+            - button
+        - generic:
+          - heading [level=1] [aria-hidden]: ទឹកត្រចៀកកាំ Premium Set
+          - generic:
+            - generic: From
+            - paragraph: $30.00
+          - status [aria-hidden]: Available options
+          - generic [aria-hidden]:
+            - group:
+              - generic: Options
+              - group:
+                - button:
+                  - generic: 4 Pieces
+                - button:
+                  - generic: 6 Pieces
+                - button:
+                  - generic: 12 Pieces
+          - separator [aria-hidden]
+          - generic:
+            - generic:
+              - generic [aria-hidden]: Quantity
+              - group:
+                - button [disabled] [aria-hidden]
+                - generic: "1"
+                - button [disabled] [aria-hidden]
+            - generic [aria-hidden]:
+              - button: Add to cart
+              - button: Buy now
+      - region [aria-hidden]:
+        - generic:
+          - tablist:
+            - tab [selected]: Specifications
+          - tabpanel:
+            - heading [level=2]: Specifications
+            - generic:
+              - generic:
+                - generic:
+                  - term: Product code
+                  - definition: "7143179"
+                - generic:
+                  - term: Unit
+                  - definition: Pieces
+      - region [aria-hidden]:
+        - heading [level=2]: You may also like
+        - generic:
+          - article:
+            - link:
+              - /url: /products/3732496
+            - generic:
+              - heading [level=3]:
+                - link:
+                  - /url: /products/3732496
+                  - text: ទឹកត្រចៀកកាំ
+              - generic:
+                - generic: From$15.00
+                - button:
+                  - generic: Options
+    - contentinfo [aria-hidden]:
+      - generic:
+        - generic:
+          - link:
+            - /url: /
+            - generic: MongKol
+          - generic: ABA KHQR / Bakong
+        - navigation:
+          - link:
+            - /url: /
+            - text: Home
+          - link:
+            - /url: /products
+            - text: Products
+          - link:
+            - /url: /promotion
+            - text: Promotions
+          - link:
+            - /url: /categories
+            - text: Category
+          - link:
+            - /url: /about
+            - text: About Us
+        - generic:
+          - link:
+            - /url: mailto:support@chhin.tech
+            - generic: support@chhin.tech
+      - generic:
+        - generic:
+          - paragraph: © 2026 MongKol
+    - navigation [aria-hidden]:
+      - link:
+        - /url: /
+        - generic: Home
+      - link:
+        - /url: /products
+        - generic: Products
+      - link:
+        - /url: /promotion
+        - generic: Promotions
+      - link:
+        - /url: /login
+        - generic: Profile
+  - dialog "Your bag":
+    - banner [aria-hidden]:
+      - generic:
+        - generic:
+          - heading [level=2]: Your bag
+          - paragraph: 1 item
+        - button
+      - generic:
+        - generic: Items
+        - button:
+          - generic: Remove all
+    - separator [aria-hidden]
+    - generic:
+      - article:
+        - generic:
+          - generic:
+            - generic [aria-hidden]:
+              - strong: ទឹកត្រចៀកកាំ Premium Set
+              - button
+            - combobox [aria-hidden]
+            - generic:
+              - generic:
+                - button [disabled] [aria-hidden]
+                - generic: "1"
+                - button [aria-hidden]
+              - strong [aria-hidden]: $30.00
+        - separator [aria-hidden]
+    - contentinfo [aria-hidden]:
+      - generic:
+        - generic: Subtotal
+        - strong: $30.00
+      - link:
+        - /url: /checkout
+        - text: Go to checkout
+      - paragraph: You’ll sign in next. Your bag will stay saved.
+  - alertdialog [ref=f6e255]:
+    - heading "Remove all items?" [level=2] [ref=f6e256]
+    - paragraph [ref=f6e257]: All items will be removed from your bag.
+    - generic [ref=f6e258]:
+      - button "Cancel" [active] [ref=f6e259] [cursor=pointer]
+      - button "Remove all" [ref=f6e260] [cursor=pointer]
