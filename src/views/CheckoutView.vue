@@ -1,6 +1,8 @@
 <script setup>
+import StoreIcon from '../components/icons/StoreIcon.vue'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { validateSession, getToken } from '../services/authService'
 import api from '../services/api'
 import { assetUrl } from '../services/api'
 import {
@@ -14,6 +16,9 @@ import {
 import { createOrder, generateOrderPayment, verifyOrderPayment } from '../services/orderService'
 import { getProducts } from '../services/productService'
 import { t } from '../services/i18n'
+import { validationErrors, validationMessage as apiError } from '../utils/apiErrors'
+import { normalizeCambodianPhone } from '../utils/cambodianPhone'
+import { optionLabel } from '../utils/productDetail'
 import { Button } from '../components/ui/button.js'
 import OrderCompleteDialog from '../components/checkout/OrderCompleteDialog.vue'
 import CartRowsSkeleton from '../components/CartRowsSkeleton.vue'
@@ -50,16 +55,48 @@ import {
   FieldError,
   Separator,
 } from '../components/ui/field.js'
-import {
-  Input,
-  Textarea,
-  NativeSelect,
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from '../components/ui/input.js'
+import { Input, Textarea, NativeSelect } from '../components/ui/input.js'
 
-const checkoutPageClass = 'mx-auto max-w-[1200px] px-5 pt-8 pb-14 sm:px-8 lg:px-12'
+const route = useRoute()
+const router = useRouter()
+const sessionState = ref('checking')
+const isPreparingOrder = ref(false)
+let sessionCheck
+const requireSignIn = () => {
+  if (checkoutUnmounted || sessionState.value === 'expired') return
+  sessionState.value = 'expired'
+  stopPaymentPolling()
+  router.replace({ name: 'login', query: { redirect: order.value ? '/orders' : route.fullPath } })
+}
+const checkSession = () => {
+  if (sessionCheck) return sessionCheck
+  sessionState.value = 'checking'
+  sessionCheck = (async () => {
+    try {
+      await validateSession()
+      if (checkoutUnmounted) return false
+      sessionState.value = 'ready'
+      return true
+    } catch (error) {
+      if (checkoutUnmounted) return false
+      if ([401, 403].includes(error.status)) requireSignIn()
+      else sessionState.value = 'unavailable'
+      return false
+    } finally {
+      sessionCheck = undefined
+    }
+  })()
+  return sessionCheck
+}
+const handleAuthChange = () => {
+  if (!getToken()) requireSignIn()
+}
+const retrySession = async () => {
+  if (await checkSession())
+    await Promise.all([refreshCheckoutCart(), loadProducts(), loadLogistics(), loadAddresses()])
+}
+
+const checkoutPageClass = 'store-container pt-8 pb-16'
 const sectionLabelClass = 'm-0 text-lg font-semibold tracking-tight text-ink'
 const optionClass =
   'grid min-h-20 cursor-pointer grid-cols-[auto_2.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl bg-accent-soft/70 p-4 ring-1 ring-transparent transition-[background-color,box-shadow] duration-200 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:bg-accent-soft has-[:checked]:bg-paper has-[:checked]:ring-ink/70'
@@ -212,11 +249,7 @@ const validateAddress = () => {
     else if (value.length > limit)
       errors[field] = t('checkout.fieldTooLong').replace('{limit}', limit)
   }
-  if (
-    selectedAddressId.value === 'new' &&
-    form.value.phone &&
-    !/^[0-9][0-9 ]{7,11}$/.test(form.value.phone)
-  )
+  if (form.value.phone && !normalizeCambodianPhone(form.value.phone))
     errors.phone = t('checkout.invalidPhone')
   fieldErrors.value = errors
   return !Object.keys(errors).length
@@ -261,8 +294,8 @@ const confirmDeleteAddress = async () => {
     if (pendingAddressId.value === String(id))
       pendingAddressId.value = String(addresses.value[0]?.id ?? 'new')
     addressToDelete.value = null
-  } catch {
-    deleteAddressError.value = t('checkout.deleteAddressError')
+  } catch (error) {
+    deleteAddressError.value = apiError(error, t('checkout.deleteAddressError'))
   } finally {
     isDeletingAddress.value = false
   }
@@ -332,6 +365,7 @@ const cambodiaProvinces = [
   'Oddar Meanchey',
   'Pailin',
   'Phnom Penh',
+  'Prey Veng',
   'Preah Sihanouk',
   'Preah Vihear',
   'Pursat',
@@ -417,8 +451,6 @@ const loadLogistics = async () => {
   }
 }
 
-const apiError = (_error, fallback) => fallback
-
 const loadProducts = async () => {
   isLoadingProducts.value = true
   productsError.value = ''
@@ -436,9 +468,9 @@ const refreshCheckoutCart = async () => {
   cartError.value = ''
   try {
     await resolveCurrentCart()
-  } catch {
+  } catch (error) {
     canCheckout.value = false
-    cartError.value = t('checkout.cartRefreshError')
+    cartError.value = apiError(error, t('checkout.cartRefreshError'))
   } finally {
     isRefreshingCart.value = false
   }
@@ -470,6 +502,10 @@ const closePaymentModal = () => {
   }
 }
 
+const handlePaymentDialogOpen = (open) => {
+  if (!open) closePaymentModal()
+}
+
 const resolveCurrentCart = async () => {
   const resolved = await resolveCart()
   refreshCart()
@@ -481,8 +517,61 @@ const resolveCurrentCart = async () => {
 }
 
 const submitOrder = async () => {
+  if (isPreparingOrder.value || isSubmitting.value || isSubmitted.value) return
+  isPreparingOrder.value = true
+  try {
+    await prepareOrder()
+  } finally {
+    isPreparingOrder.value = false
+  }
+}
+
+const startOrderPayment = async () => {
+  const orderId = orderIdFrom(order.value)
+  if (!orderId || checkoutUnmounted) return
+  stopPaymentPolling()
+  errorMessage.value = ''
+  paymentWarning.value = ''
+  paymentCompleted.value = false
+  paymentExpired.value = false
+  paymentAction.value = ''
+  paymentDetails.value = null
+  paymentQrImage.value = ''
+  isSubmitted.value = true
+  const session = paymentSession
+  try {
+    const payment = await generateOrderPayment(orderId)
+    if (!isSubmitted.value || session !== paymentSession) return
+    paymentDetails.value = payment
+    paymentQrImage.value = payment.qr_image
+    startPaymentCountdown(payment.expires_at)
+    schedulePaymentCheck()
+    if (canOpenAbaApp.value) {
+      try {
+        window.location.assign(payment.deeplink_url)
+      } catch {
+        // Browsers may require a direct tap; keep the QR and app button available.
+      }
+    }
+  } catch (error) {
+    if (!isSubmitted.value || session !== paymentSession) return
+    errorMessage.value = apiError(error, t('checkout.khqrError'))
+  }
+}
+
+const prepareOrder = async () => {
+  if (!(await checkSession())) return
   if (isSubmitting.value || isLoadingAddresses.value || isDeletingAddress.value) return
   errorMessage.value = ''
+  if (orderIdFrom(order.value)) {
+    isSubmitting.value = true
+    try {
+      await startOrderPayment()
+    } finally {
+      isSubmitting.value = false
+    }
+    return
+  }
   if (!validateAddress()) {
     await focusAddressError()
     return
@@ -492,7 +581,7 @@ const submitOrder = async () => {
     cartError.value = ''
   } catch (error) {
     canCheckout.value = false
-    cartError.value = t('checkout.cartRefreshError')
+    cartError.value = apiError(error, t('checkout.cartRefreshError'))
     return
   }
   if (
@@ -509,9 +598,10 @@ const submitOrder = async () => {
   errorMessage.value = ''
   isSubmitting.value = true
   try {
+    if (checkoutUnmounted || !getToken()) return
     const createdOrder = await createOrder({
       name: form.value.name.trim(),
-      phone: form.value.phone.trim(),
+      phone: normalizeCambodianPhone(form.value.phone),
       address: form.value.address.trim(),
       city: form.value.city.trim(),
       note: form.value.note.trim() || null,
@@ -531,38 +621,13 @@ const submitOrder = async () => {
     const orderId = orderIdFrom(createdOrder)
     if (!orderId) throw new Error(t('checkout.missingOrderId'))
     order.value = createdOrder?.data || createdOrder
-    stopPaymentPolling()
-    paymentCompleted.value = false
-    paymentExpired.value = false
-    paymentAction.value = ''
-    isSubmitted.value = true
-    const session = paymentSession
-    try {
-      const payment = await generateOrderPayment(orderId)
-      if (!isSubmitted.value || session !== paymentSession) return
-      paymentDetails.value = payment
-      paymentQrImage.value = payment.qr_image
-      startPaymentCountdown(payment.expires_at)
-      schedulePaymentCheck()
-      if (canOpenAbaApp.value) {
-        try {
-          window.location.assign(payment.deeplink_url)
-        } catch {
-          // Browsers may require a direct tap; keep the QR and app button available.
-        }
-      }
-    } catch (error) {
-      if (!isSubmitted.value || session !== paymentSession) return
-      errorMessage.value = apiError(error, t('checkout.khqrError'))
-    }
+    await startOrderPayment()
   } catch (error) {
     if (checkoutUnmounted) return
-    const errors = error.status === 422 ? error.details?.errors : null
-    for (const field of addressFields)
-      if (errors?.[field])
-        fieldErrors.value[field] = t(`checkout.invalid${field[0].toUpperCase()}${field.slice(1)}`)
+    const errors = validationErrors(error)
+    for (const field of addressFields) if (errors[field]) fieldErrors.value[field] = errors[field]
     if (Object.keys(fieldErrors.value).length) {
-      errorMessage.value = t('checkout.checkAddress')
+      errorMessage.value = apiError(error, t('checkout.checkAddress'))
       isSubmitting.value = false
       await focusAddressError()
     } else errorMessage.value = apiError(error, t('checkout.orderCreateError'))
@@ -631,15 +696,19 @@ const checkPayment = async () => {
 }
 
 onMounted(async () => {
+  window.addEventListener('auth-updated', handleAuthChange)
+  window.addEventListener('storage', handleAuthChange)
   window.addEventListener('cart-updated', refreshCart)
   window.addEventListener('storage', refreshCart)
-  await Promise.all([refreshCheckoutCart(), loadProducts(), loadLogistics(), loadAddresses()])
+  await retrySession()
 })
 
 onUnmounted(() => {
   checkoutUnmounted = true
   isSubmitted.value = false
   stopPaymentPolling()
+  window.removeEventListener('auth-updated', handleAuthChange)
+  window.removeEventListener('storage', handleAuthChange)
   window.removeEventListener('cart-updated', refreshCart)
   window.removeEventListener('storage', refreshCart)
   if (paymentQrImage.value) URL.revokeObjectURL(paymentQrImage.value)
@@ -647,7 +716,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main :class="checkoutPageClass">
+  <main id="main-content" tabindex="-1" :class="checkoutPageClass">
     <div class="mb-9 flex flex-wrap items-end justify-between gap-4">
       <div class="grid gap-4">
         <Button type="button" variant="ghost" size="sm" class="w-fit gap-2 px-0" @click="openBag"
@@ -660,11 +729,13 @@ onUnmounted(() => {
             <path d="M19 12H5m6 6-6-6 6-6" /></svg
           >{{ t('checkout.backToBag') }}
         </Button>
-        <h1
-          class="m-0 text-[clamp(2rem,4vw,2.75rem)] font-semibold leading-tight tracking-tight text-ink"
-        >
-          {{ t('checkout.title') }}
-        </h1>
+        <div class="store-page-heading">
+          <h1
+            class="m-0 text-[clamp(2rem,4vw,2.75rem)] font-semibold leading-tight tracking-tight text-ink"
+          >
+            {{ t('checkout.title') }}
+          </h1>
+        </div>
       </div>
     </div>
 
@@ -675,26 +746,17 @@ onUnmounted(() => {
       @close="closePaymentModal"
       @close-auto-focus="restoreCheckoutFocus"
     />
-    <Teleport to="body">
-      <div
-        v-if="isSubmitted && !paymentCompleted"
-        class="fixed inset-0 z-20 flex items-center justify-center bg-[rgb(32_35_33/72%)] p-5"
-        role="presentation"
-        @click.self="closePaymentModal"
+    <Dialog :open="isSubmitted && !paymentCompleted" @update:open="handlePaymentDialogOpen">
+      <DialogContent
+        class="max-w-[460px] gap-0 rounded-[18px] bg-white p-[24px] font-sans text-[#314865] max-xs:p-4"
+        @close-auto-focus="restoreCheckoutFocus"
       >
-        <section
-          class="relative max-h-[calc(100vh-2.5rem)] w-full max-w-[460px] overflow-y-auto rounded-[18px] bg-white p-[24px] font-[Arial,sans-serif] text-[#314865] shadow-[0_1.5rem_4rem_rgb(0_0_0/25%)] max-xs:p-4"
-          role="dialog"
-          aria-modal="true"
-          :aria-labelledby="paymentCompleted ? 'order-completed-title' : 'payment-modal-title'"
-          :aria-describedby="paymentCompleted ? 'order-completed-description' : undefined"
-        >
-          <header v-if="!paymentCompleted" class="flex items-center gap-[14px] max-xs:gap-2">
+        <header v-if="!paymentCompleted" class="flex items-center gap-[14px] max-xs:gap-2">
+          <DialogClose as-child>
             <button
               class="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border-0 bg-[#f0f1f2] p-[10px] text-[#5c6470] focus-visible:outline-solid focus-visible:outline-[2px] focus-visible:outline-offset-[3px] focus-visible:outline-aba"
               type="button"
               :aria-label="t('checkout.closeDialog')"
-              @click="closePaymentModal"
             >
               <svg
                 class="h-6 w-6 fill-none stroke-current stroke-[2.5]"
@@ -704,152 +766,201 @@ onUnmounted(() => {
                 <path d="m14 7-5 5 5 5" />
               </svg>
             </button>
-            <h2
-              id="payment-modal-title"
-              class="m-0 font-[Arial,sans-serif] text-[22px] leading-[1.2] font-semibold text-[#314865] max-xs:text-[18px]"
-            >
-              ABA KHQR
-            </h2>
+          </DialogClose>
+          <DialogTitle
+            id="payment-modal-title"
+            class="m-0 font-sans text-[22px] leading-[1.2] font-semibold text-[#314865] max-xs:text-[18px]"
+          >
+            ABA KHQR
+          </DialogTitle>
+          <DialogDescription class="sr-only">{{ t('checkout.scanWithApp') }}</DialogDescription>
+          <div
+            v-if="paymentDetails && !paymentCompleted"
+            class="ml-auto flex items-center gap-[9px] text-base font-semibold text-[#333] tabular-nums max-xs:gap-[6px] max-xs:text-[14px]"
+            role="timer"
+            aria-label="Time left to scan QR"
+            aria-live="off"
+          >
+            <span
+              class="relative h-[26px] w-[26px] flex-[0_0_26px] rounded-full bg-[conic-gradient(#21b9cd_var(--progress),#e8edef_0)] after:absolute after:inset-[5px] after:rounded-full after:bg-white after:content-['']"
+              :style="{ '--progress': countdownProgress + '%' }"
+              aria-hidden="true"
+            ></span>
+            <span>{{ countdownLabel }}</span>
+          </div>
+        </header>
+        <Transition name="payment-step" mode="out-in">
+          <div key="scan" class="pt-4 text-center">
             <div
-              v-if="paymentDetails && !paymentCompleted"
-              class="ml-auto flex items-center gap-[9px] text-base font-semibold text-[#333] tabular-nums max-xs:gap-[6px] max-xs:text-[14px]"
-              role="timer"
-              aria-label="Time left to scan QR"
-              aria-live="off"
+              v-if="paymentDetails && !paymentExpired && !qrTimeUp"
+              class="mx-auto mt-[30px] mb-6 w-[260px] max-w-full overflow-hidden rounded-[20px] bg-white text-left shadow-[0_8px_24px_#00000012]"
             >
-              <span
-                class="relative h-[26px] w-[26px] flex-[0_0_26px] rounded-full bg-[conic-gradient(#21b9cd_var(--progress),#e8edef_0)] after:absolute after:inset-[5px] after:rounded-full after:bg-white after:content-['']"
-                :style="{ '--progress': countdownProgress + '%' }"
-                aria-hidden="true"
-              ></span>
-              <span>{{ countdownLabel }}</span>
-            </div>
-          </header>
-          <Transition name="payment-step" mode="out-in">
-            <div key="scan" class="pt-4 text-center">
               <div
-                v-if="paymentDetails && !paymentExpired && !qrTimeUp"
-                class="mx-auto mt-[30px] mb-6 w-[260px] max-w-full overflow-hidden rounded-[20px] bg-white text-left shadow-[0_8px_24px_#00000012]"
+                class="relative flex h-11 items-center justify-center bg-[#e21a1a] after:absolute after:top-full after:right-0 after:border-t-[18px] after:border-t-[#e21a1a] after:border-l-[18px] after:border-l-transparent after:content-['']"
               >
-                <div
-                  class="relative flex h-11 items-center justify-center bg-[#e21a1a] after:absolute after:top-full after:right-0 after:border-t-[18px] after:border-t-[#e21a1a] after:border-l-[18px] after:border-l-transparent after:content-['']"
+                <img src="/aba-khqr-header.svg" alt="KHQR" width="60" height="14" />
+              </div>
+              <div class="border-b border-dashed border-[#a7a7a7] px-[30px] pt-6 pb-[15px]">
+                <p
+                  v-if="paymentDetails.merchant_name"
+                  class="mt-0 mr-0 mb-1 ml-0 font-sans text-[13px] leading-[1.4] font-normal text-[#314865] [overflow-wrap:anywhere]"
                 >
-                  <img src="/aba-khqr-header.svg" alt="KHQR" width="60" height="14" />
-                </div>
-                <div class="border-b border-dashed border-[#a7a7a7] px-[30px] pt-6 pb-[15px]">
-                  <p
-                    v-if="paymentDetails.merchant_name"
-                    class="mt-0 mr-0 mb-1 ml-0 font-[Arial,sans-serif] text-[13px] leading-[1.4] font-normal text-[#314865] [overflow-wrap:anywhere]"
-                  >
-                    {{ paymentDetails.merchant_name }}
-                  </p>
-                  <div>
-                    <strong class="text-[21px] font-bold text-[#172c49]">{{
-                      Number(paymentDetails.amount).toFixed(2)
-                    }}</strong
-                    ><span class="ml-[10px] text-[10px] text-[#314865]">{{
-                      paymentDetails.currency
-                    }}</span>
-                  </div>
-                </div>
-                <div class="relative mx-auto my-[12px] aspect-square w-56 max-w-[calc(100%-24px)]">
-                  <img
-                    class="block h-full w-full"
-                    :src="paymentQrImage"
-                    alt="Scan to pay with KHQR"
-                    width="224"
-                    height="224"
-                  />
-                  <img
-                    class="absolute top-1/2 left-1/2 h-[14.3%] w-[14.3%] -translate-x-1/2 -translate-y-1/2"
-                    src="/aba-bakong.svg"
-                    alt=""
-                    aria-hidden="true"
-                    width="32"
-                    height="32"
-                  />
+                  {{ paymentDetails.merchant_name }}
+                </p>
+                <div>
+                  <strong class="text-[21px] font-bold text-[#172c49]">{{
+                    Number(paymentDetails.amount).toFixed(2)
+                  }}</strong
+                  ><span class="ml-[10px] text-[10px] text-[#314865]">{{
+                    paymentDetails.currency
+                  }}</span>
                 </div>
               </div>
-              <p
-                v-if="paymentDetails && !paymentExpired && !qrTimeUp"
-                class="m-0 font-[Arial,sans-serif] text-base leading-[1.5] font-normal text-[#737373]"
-              >
-                {{ t('checkout.scanWithApp') }}
-              </p>
-              <div
-                v-if="!paymentDetails && !errorMessage"
-                class="flex justify-center py-6"
-                role="status"
-                :aria-label="t('checkout.preparingQr')"
-              >
-                <Skeleton class="size-60" />
-              </div>
-              <p
-                v-if="paymentDetails && !paymentExpired"
-                class="mt-4 font-[Arial,sans-serif] text-[12px] leading-[1.5] font-normal text-[#677281]"
-                role="status"
-                aria-atomic="true"
-              >
-                {{ paymentStatusMessage }}
-              </p>
-              <CheckoutFeedback
-                v-if="paymentWarning || errorMessage"
-                class="mt-5"
-                :title="
-                  errorMessage
-                    ? t('checkout.paymentUnavailable')
-                    : paymentExpired
-                      ? t('checkout.qrExpired')
-                      : t('checkout.paymentNotReceived')
-                "
-                :description="errorMessage || paymentWarning"
-                :action="
-                  paymentDetails && !paymentExpired
-                    ? t('checkout.checkPaymentAgain')
-                    : t('checkout.backToCheckout')
-                "
-                :busy="isVerifying"
-                @retry="paymentDetails && !paymentExpired ? checkPayment() : closePaymentModal()"
-              />
-              <div class="mx-auto mt-5 grid w-full max-w-[280px] gap-3">
-                <a
-                  v-if="canOpenAbaApp"
-                  :href="paymentDetails.deeplink_url"
-                  class="block w-full cursor-pointer border border-solid border-transparent bg-accent p-4 text-center text-[0.7rem] font-bold text-white uppercase no-underline hover:bg-accent-hover"
-                >
-                  {{ t('checkout.openAba') }}
-                </a>
-                <button
-                  class="block w-full cursor-pointer border border-solid border-line bg-transparent p-4 text-center text-[0.7rem] font-bold text-ink uppercase no-underline hover:bg-ink hover:text-white disabled:cursor-not-allowed"
-                  type="button"
-                  @click="closePaymentModal"
-                >
-                  {{ t('checkout.close') }}
-                </button>
+              <div class="relative mx-auto my-[12px] aspect-square w-56 max-w-[calc(100%-24px)]">
+                <img
+                  class="block h-full w-full"
+                  :src="paymentQrImage"
+                  alt="Scan to pay with KHQR"
+                  width="224"
+                  height="224"
+                />
+                <img
+                  class="absolute top-1/2 left-1/2 h-[14.3%] w-[14.3%] -translate-x-1/2 -translate-y-1/2"
+                  src="/aba-bakong.svg"
+                  alt=""
+                  aria-hidden="true"
+                  width="32"
+                  height="32"
+                />
               </div>
             </div>
-          </Transition>
-        </section>
-      </div>
-    </Teleport>
+            <p
+              v-if="paymentDetails && !paymentExpired && !qrTimeUp"
+              class="m-0 font-sans text-base leading-[1.5] font-normal text-[#737373]"
+            >
+              {{ t('checkout.scanWithApp') }}
+            </p>
+            <div
+              v-if="!paymentDetails && !errorMessage"
+              class="flex justify-center py-6"
+              role="status"
+              :aria-label="t('checkout.preparingQr')"
+            >
+              <Skeleton class="size-60" />
+            </div>
+            <p
+              v-if="paymentDetails && !paymentExpired"
+              class="mt-4 font-sans text-[12px] leading-[1.5] font-normal text-[#677281]"
+              role="status"
+              aria-atomic="true"
+            >
+              {{ paymentStatusMessage }}
+            </p>
+            <CheckoutFeedback
+              v-if="paymentWarning || errorMessage"
+              class="mt-5"
+              :title="
+                errorMessage
+                  ? t('checkout.paymentUnavailable')
+                  : paymentExpired
+                    ? t('checkout.qrExpired')
+                    : t('checkout.paymentNotReceived')
+              "
+              :description="errorMessage || paymentWarning"
+              :action="
+                paymentDetails && !paymentExpired
+                  ? t('checkout.checkPaymentAgain')
+                  : t('checkout.backToCheckout')
+              "
+              :busy="isVerifying"
+              @retry="paymentDetails && !paymentExpired ? checkPayment() : closePaymentModal()"
+            />
+            <div class="mx-auto mt-5 grid w-full max-w-[280px] gap-3">
+              <a
+                v-if="canOpenAbaApp"
+                :href="paymentDetails.deeplink_url"
+                class="block w-full cursor-pointer border border-solid border-transparent bg-accent p-4 text-center rounded-xl text-sm font-semibold text-white no-underline hover:bg-accent-hover"
+              >
+                {{ t('checkout.openAba') }}
+              </a>
+              <button
+                class="block w-full cursor-pointer border border-solid border-line bg-transparent p-4 text-center rounded-xl text-sm font-semibold text-ink no-underline hover:bg-ink hover:text-white disabled:cursor-not-allowed"
+                type="button"
+                @click="closePaymentModal"
+              >
+                {{ t('checkout.close') }}
+              </button>
+            </div>
+          </div>
+        </Transition>
+      </DialogContent>
+    </Dialog>
 
+    <div
+      v-if="sessionState === 'checking'"
+      role="status"
+      aria-busy="true"
+      :aria-label="t('session.checking')"
+      class="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:gap-12"
+    >
+      <div class="min-w-0" aria-hidden="true">
+        <div class="grid gap-7 rounded-2xl bg-paper p-5 sm:p-7">
+          <div class="grid gap-5">
+            <Skeleton class="h-8 w-48 max-w-full" />
+            <Skeleton class="h-20 w-full" />
+            <div class="grid gap-4 sm:grid-cols-2">
+              <Skeleton v-for="field in 4" :key="field" class="h-14 w-full" />
+            </div>
+          </div>
+          <Separator />
+          <div v-for="section in 2" :key="section" class="grid gap-5">
+            <Skeleton class="h-8 w-44 max-w-full" />
+            <Skeleton class="h-20 w-full" />
+          </div>
+        </div>
+      </div>
+      <div class="grid min-w-0 gap-5 rounded-2xl bg-paper p-5 sm:p-7" aria-hidden="true">
+        <Skeleton class="h-7 w-40 max-w-full" />
+        <div v-for="item in 2" :key="item" class="grid grid-cols-[4rem_minmax(0,1fr)] gap-3">
+          <Skeleton class="size-16 rounded-lg" />
+          <div class="grid gap-2">
+            <Skeleton class="h-5 w-3/4" />
+            <Skeleton class="h-4 w-1/2" />
+            <Skeleton class="h-7 w-24" />
+          </div>
+        </div>
+        <Separator />
+        <Skeleton class="h-5 w-full" />
+        <Skeleton class="h-5 w-full" />
+        <Skeleton class="h-8 w-full" />
+        <Skeleton class="h-12 w-full rounded-full" />
+      </div>
+    </div>
+    <CheckoutFeedback
+      v-else-if="sessionState === 'unavailable'"
+      :title="t('session.unavailable')"
+      :description="t('session.retryHelp')"
+      :action="t('checkout.retryAddresses')"
+      @retry="retrySession"
+    />
     <form
+      v-else-if="sessionState === 'ready'"
       :inert="isSubmitted"
       class="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:gap-12"
       novalidate
       :aria-busy="isSubmitting"
       @submit.prevent="submitOrder"
     >
-      <div class="rounded-[28px] bg-accent-soft/70 p-1.5">
-        <div class="grid gap-7 rounded-[22px] bg-paper p-5 sm:p-7">
+      <div class="min-w-0">
+        <div class="grid gap-7 rounded-2xl bg-paper p-5 sm:p-7">
           <section class="grid min-w-0 gap-5" aria-labelledby="delivery-address-title">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-3">
                 <span
                   class="flex size-8 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-muted"
                   aria-hidden="true"
-                  >01</span
-                >
+                  ><StoreIcon name="pin" class="size-4 text-accent"
+                /></span>
                 <h2 id="delivery-address-title" :class="sectionLabelClass">
                   {{ t('checkout.deliveryAddress') }}
                 </h2>
@@ -955,25 +1066,23 @@ onUnmounted(() => {
                   <span id="checkout-phone-hint" class="sr-only">{{
                     t('checkout.phoneTitle')
                   }}</span
-                  ><InputGroup
-                    ><InputGroupAddon aria-hidden="true">+855</InputGroupAddon
-                    ><InputGroupInput
-                      id="checkout-phone"
-                      v-model="form.phone"
-                      autocomplete="tel-national"
-                      :aria-invalid="Boolean(fieldErrors.phone)"
-                      :aria-describedby="
-                        fieldErrors.phone
-                          ? 'checkout-phone-hint checkout-phone-error'
-                          : 'checkout-phone-hint'
-                      "
-                      @input="clearFieldError('phone')"
-                      required
-                      type="tel"
-                      inputmode="tel"
-                      maxlength="30"
-                      :placeholder="t('checkout.phoneExample')"
-                  /></InputGroup>
+                  ><Input
+                    id="checkout-phone"
+                    v-model="form.phone"
+                    autocomplete="tel"
+                    :aria-invalid="Boolean(fieldErrors.phone)"
+                    :aria-describedby="
+                      fieldErrors.phone
+                        ? 'checkout-phone-hint checkout-phone-error'
+                        : 'checkout-phone-hint'
+                    "
+                    @input="clearFieldError('phone')"
+                    required
+                    type="tel"
+                    inputmode="tel"
+                    maxlength="30"
+                    :placeholder="t('checkout.phoneExample')"
+                  />
                   <FieldError v-if="fieldErrors.phone" id="checkout-phone-error">{{
                     fieldErrors.phone
                   }}</FieldError>
@@ -1046,8 +1155,8 @@ onUnmounted(() => {
               <span
                 class="flex size-8 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-muted"
                 aria-hidden="true"
-                >02</span
-              >
+                ><StoreIcon name="truck" class="size-4 text-accent"
+              /></span>
               <h2 :class="sectionLabelClass">{{ t('checkout.selectDelivery') }}</h2>
             </div>
             <div
@@ -1116,8 +1225,8 @@ onUnmounted(() => {
               <span
                 class="flex size-8 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-muted"
                 aria-hidden="true"
-                >03</span
-              >
+                ><StoreIcon name="card" class="size-4 text-accent"
+              /></span>
               <h2 :class="sectionLabelClass">{{ t('checkout.paymentMethod') }}</h2>
             </div>
             <label :class="optionClass">
@@ -1140,9 +1249,10 @@ onUnmounted(() => {
         </div>
       </div>
       <aside
-        class="grid min-w-0 gap-5 rounded-[24px] bg-paper p-5 ring-1 ring-ink/6 shadow-[0_12px_48px_rgb(0_0_0/5%)] sm:p-7 lg:sticky lg:top-24"
+        class="grid min-w-0 gap-5 rounded-2xl bg-paper p-5 sm:p-7 lg:sticky lg:top-40 xl:top-28"
       >
-        <h2 class="m-0 text-xl font-semibold tracking-tight text-ink">
+        <h2 class="m-0 flex items-center gap-2 text-xl font-semibold tracking-tight text-ink">
+          <StoreIcon name="list" class="size-5 text-accent" />
           {{ t('checkout.orderSummary') }}
         </h2>
         <CheckoutFeedback
@@ -1222,7 +1332,7 @@ onUnmounted(() => {
                 >
                   {{ t('checkout.productUnavailable') }}
                 </small>
-                <label v-if="!item.unavailable" class="text-[1rem] text-muted uppercase">
+                <label v-if="!item.unavailable" class="text-sm text-muted">
                   <select
                     class="select-chevron mt-2 min-h-11 max-w-full cursor-pointer rounded-xl bg-accent-soft py-2 pr-8 pl-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                     :aria-label="`${t('checkout.productOption')}: ${item.productName}`"
@@ -1237,7 +1347,7 @@ onUnmounted(() => {
                       :value="variant.id"
                       :disabled="!variant.is_active || Number(variant.stock_qty) <= 0"
                     >
-                      {{ variant.name
+                      {{ optionLabel(productFor(item), variant.name)
                       }}{{ Number(variant.stock_qty) <= 0 ? ` (${t('cart.outOfStock')})` : '' }}
                     </option>
                   </select>
@@ -1252,7 +1362,7 @@ onUnmounted(() => {
                     :disabled="item.unavailable || item.quantity <= 1"
                     @click="changeQuantity(item, item.quantity - 1)"
                   >
-                    −
+                    <StoreIcon name="minus" class="size-4" />
                   </button>
                   <span
                     class="min-w-6 text-center text-sm font-semibold text-ink"
@@ -1269,7 +1379,7 @@ onUnmounted(() => {
                     "
                     @click="changeQuantity(item, item.quantity + 1)"
                   >
-                    +
+                    <StoreIcon name="plus" class="size-4" />
                   </button>
                 </div>
               </div>
@@ -1332,6 +1442,7 @@ onUnmounted(() => {
             !cart.length ||
             !canCheckout ||
             isSubmitting ||
+            isPreparingOrder ||
             isLoadingLogistics ||
             isLoadingAddresses ||
             isDeletingAddress ||

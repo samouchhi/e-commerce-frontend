@@ -5,6 +5,7 @@ import { createContext, SourceTextModule, SyntheticModule } from 'node:vm'
 import { parse, compileScript } from '@vue/compiler-sfc'
 import { computed, ref, nextTick } from 'vue'
 import { translate } from '../src/services/i18n.js'
+import { normalizeCambodianPhone } from '../src/utils/cambodianPhone.js'
 
 const TEST_NOW = Date.parse('2026-09-10T09:00:00Z')
 
@@ -83,9 +84,15 @@ async function checkoutHarness({
       onUnmounted: (callback) => unmount.push(callback),
     },
     '../services/i18n': { t: (key) => translate('en', key) },
+    '../services/authService': {
+      validateSession: async () => true,
+      getToken: () => 'customer-test-token',
+    },
     '../services/addressService': { getAddresses: async () => [], deleteAddress: async () => {} },
     '../components/ui/button.js': { Button: {} },
+    '../components/icons/StoreIcon.vue': { default: {} },
     '../components/checkout/OrderCompleteDialog.vue': { default: {} },
+    '../components/CartRowsSkeleton.vue': { default: {} },
     '../components/ui/badge.js': { Badge: {} },
     '../components/ui/radio-group.js': { RadioGroup: {}, RadioGroupItem: {} },
     '../components/ui/feedback.js': {
@@ -126,7 +133,11 @@ async function checkoutHarness({
       InputGroupAddon: {},
       InputGroupInput: {},
     },
-    'vue-router': { RouterLink: {} },
+    'vue-router': {
+      RouterLink: {},
+      useRoute: () => ({ fullPath: '/checkout' }),
+      useRouter: () => ({ replace() {} }),
+    },
     '../services/api': { default: {}, assetUrl: (path) => path },
     '../services/cartService': {
       getCart: () => [{ variantId: 1, productId: 1, price: 5, quantity: 1 }],
@@ -147,6 +158,16 @@ async function checkoutHarness({
       },
     },
     '../services/productService': { getProducts: async () => [] },
+    '../utils/cambodianPhone': {
+      normalizeCambodianPhone,
+    },
+    '../utils/productDetail': {
+      optionLabel: (_product, value) => String(value ?? ''),
+    },
+    '../utils/apiErrors': {
+      validationErrors: (error) => error.details?.errors || {},
+      validationMessage: (_error, fallback) => fallback,
+    },
   }
   const modules = new Map()
   const component = new SourceTextModule(compiled, { context })
@@ -219,6 +240,32 @@ test('checkout starts polling after QR generation and confirms payment automatic
   assert.equal(h.view.paymentCompleted.value, true)
   assert.equal(h.clearCount, 1)
   assert.equal(h.timers.size, 0)
+})
+
+test('closing and reopening payment reuses the created order', async () => {
+  let creates = 0
+  let payments = 0
+  const h = await checkoutHarness({
+    create: async () => {
+      creates++
+      return { id: 76 }
+    },
+    generate: async () => {
+      payments++
+      return {
+        qr_image: 'data:image/png;base64,test',
+        expires_at: new Date(TEST_NOW + 180000).toISOString(),
+      }
+    },
+  })
+
+  await h.view.submitOrder()
+  h.view.closePaymentModal()
+  await h.view.submitOrder()
+
+  assert.equal(creates, 1)
+  assert.equal(payments, 2)
+  assert.equal(h.view.order.value.id, 76)
 })
 
 test('polling stops and removes the QR when Laravel reports expired', async () => {
@@ -568,9 +615,11 @@ test('deleting a selected saved address updates both the picker and checkout sel
 
 test('saved international phone numbers remain valid with the existing API contract', async () => {
   let created = 0
+  let submittedPhone
   const h = await checkoutHarness({
-    create: async () => {
+    create: async (payload) => {
       created++
+      submittedPhone = payload.phone
       return { id: 76 }
     },
   })
@@ -578,4 +627,5 @@ test('saved international phone numbers remain valid with the existing API contr
   h.view.form.value.phone = '+85512345678'
   await h.view.submitOrder()
   assert.equal(created, 1)
+  assert.equal(submittedPhone, '012345678')
 })

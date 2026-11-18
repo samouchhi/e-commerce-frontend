@@ -11,6 +11,19 @@ export const createOrder = (payload) =>
     body: JSON.stringify(payload),
   })
 
+export const canResumeOrderPayment = (order) => {
+  if (!order?.id || !Object.prototype.hasOwnProperty.call(order, 'payment_status')) return false
+  const status =
+    typeof order.payment_status === 'object'
+      ? order.payment_status?.value || order.payment_status?.name
+      : order.payment_status
+  return (
+    String(status || '')
+      .trim()
+      .toLowerCase() === 'pending'
+  )
+}
+
 export const generateOrderPayment = async (orderId) => {
   const payment = await api.request('/api/orders/' + orderId + '/payment', {
     method: 'POST',

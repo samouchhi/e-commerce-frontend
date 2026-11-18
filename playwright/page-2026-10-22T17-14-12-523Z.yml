@@ -1,0 +1,54 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e2]:
+    - link "Skip to content" [ref=f5e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=f5e4]:
+      - generic [ref=f5e5]:
+        - link "home":
+          - /url: /
+        - search [ref=f5e6]:
+          - generic [ref=f5e7]: Search
+          - searchbox "Search" [ref=f5e11]
+          - button "Search" [ref=f5e12] [cursor=pointer]
+        - navigation "More navigation" [ref=f5e16]:
+          - link "Home" [ref=f5e17] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f5e21] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f5e27] [cursor=pointer]:
+            - /url: /promotion
+          - button "Category" [ref=f5e32] [cursor=pointer]
+        - generic [ref=f5e37]:
+          - button "English / ខ្មែរ" [ref=f5e39] [cursor=pointer]
+          - button "Open profile menu" [ref=f5e44] [cursor=pointer]
+          - button "Your bag, 0 items" [ref=f5e48] [cursor=pointer]
+    - main [ref=f5e51]:
+      - heading "About Us" [level=1] [ref=f5e56]
+      - generic [ref=f5e60]:
+        - link "Shop Now" [ref=f5e61] [cursor=pointer]:
+          - /url: /products
+        - link "Shop by category" [ref=f5e62] [cursor=pointer]:
+          - /url: /categories
+    - contentinfo [ref=f5e67]:
+      - generic [ref=f5e68]:
+        - generic [ref=f5e69]:
+          - link:
+            - /url: /
+          - generic "We Accept" [ref=f5e70]:
+            - img "ABA KHQR / Bakong" [ref=f5e71]
+            - generic [ref=f5e72]: ABA KHQR / Bakong
+        - navigation "Quick Links" [ref=f5e73]:
+          - link "Home" [ref=f5e74] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f5e77] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f5e80] [cursor=pointer]:
+            - /url: /promotion
+          - link "Category" [ref=f5e83] [cursor=pointer]:
+            - /url: /categories
+          - link "About Us" [ref=f5e86] [cursor=pointer]:
+            - /url: /about
+      - paragraph [ref=f5e91]: © 2026
+  - generic [ref=f5e92]:
+    - generic "Toggle devtools panel" [ref=f5e93] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f5e99] [cursor=pointer]

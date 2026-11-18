@@ -1,8 +1,10 @@
 <script setup>
+import StoreIcon from '../components/icons/StoreIcon.vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { forgotPassword, resetPassword } from '../services/authService'
 import { t } from '../services/i18n'
+import { validationMessage } from '../utils/apiErrors'
 import { Button } from '../components/ui/button'
 import {
   Card,
@@ -27,6 +29,7 @@ const submitting = ref(false)
 const completed = ref(false)
 const statusKey = ref('')
 const errorKey = ref('')
+const errorMessage = ref('')
 const confirmationInvalid = ref(false)
 const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : ''))
 const missingLink = computed(() => isReset.value && (!token.value || !email.value))
@@ -39,6 +42,7 @@ watch(
     completed.value = false
     statusKey.value = ''
     errorKey.value = ''
+    errorMessage.value = ''
     confirmationInvalid.value = false
   },
 )
@@ -48,6 +52,7 @@ const submit = async () => {
   confirmationInvalid.value = false
   email.value = email.value.trim()
   errorKey.value = ''
+  errorMessage.value = ''
   statusKey.value = ''
   if (isReset.value && password.value !== confirmation.value) {
     confirmationInvalid.value = true
@@ -74,12 +79,12 @@ const submit = async () => {
       statusKey.value = 'passwordReset.sent'
     }
   } catch (error) {
-    errorKey.value =
-      error.status === 429
-        ? 'passwordReset.tooMany'
-        : error.details?.code === 'invalid_reset_link'
-          ? 'passwordReset.invalid'
-          : 'login.genericError'
+    if (error.status === 429) errorKey.value = 'passwordReset.tooMany'
+    else if (error.details?.code === 'invalid_reset_link') errorKey.value = 'passwordReset.invalid'
+    else {
+      errorMessage.value = validationMessage(error)
+      if (!errorMessage.value) errorKey.value = 'login.genericError'
+    }
   } finally {
     submitting.value = false
   }
@@ -87,9 +92,18 @@ const submit = async () => {
 </script>
 
 <template>
-  <main class="flex min-h-[calc(100vh-6rem)] items-center justify-center px-4 py-10 sm:px-6">
-    <Card as="section" class="w-full max-w-md" aria-labelledby="reset-title">
+  <main id="main-content" tabindex="-1" class="store-auth-page">
+    <Card as="section" class="store-auth-card" aria-labelledby="reset-title">
       <CardHeader>
+        <div class="mb-3 flex items-center justify-between">
+          <Button as-child variant="ghost" size="icon"
+            ><RouterLink
+              to="/login"
+              :aria-label="t('passwordReset.back')"
+              :title="t('passwordReset.back')"
+              ><StoreIcon name="back" /></RouterLink
+          ></Button>
+        </div>
         <CardTitle as="h1" id="reset-title">{{
           t(isReset ? 'passwordReset.resetTitle' : 'passwordReset.forgotTitle')
         }}</CardTitle>
@@ -107,7 +121,9 @@ const submit = async () => {
           >
             <FieldGroup>
               <Field v-if="!isReset" :data-disabled="submitting">
-                <FieldLabel for="reset-email">{{ t('login.email') }}</FieldLabel>
+                <FieldLabel for="reset-email"
+                  ><StoreIcon name="mail" />{{ t('login.email') }}</FieldLabel
+                >
                 <Input
                   id="reset-email"
                   v-model="email"
@@ -157,6 +173,7 @@ const submit = async () => {
               </template>
               <Button type="submit" size="lg" class="w-full" :disabled="submitting">
                 <Spinner v-if="submitting" data-icon="inline-start" />
+                <StoreIcon v-else :name="isReset ? 'check' : 'mail'" />
                 {{
                   t(
                     submitting
@@ -172,9 +189,9 @@ const submit = async () => {
           <Alert v-if="statusKey" variant="success" role="status"
             ><AlertDescription>{{ t(statusKey) }}</AlertDescription></Alert
           >
-          <Alert v-if="errorKey || missingLink" variant="error"
+          <Alert v-if="errorMessage || errorKey || missingLink" variant="error"
             ><AlertDescription>{{
-              t(missingLink ? 'passwordReset.invalid' : errorKey)
+              missingLink ? t('passwordReset.invalid') : errorMessage || t(errorKey)
             }}</AlertDescription></Alert
           >
         </div>

@@ -1,9 +1,12 @@
 <script setup>
+import StoreIcon from '../components/icons/StoreIcon.vue'
+import { finishSignIn } from '../services/authNavigation'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login, register, resendOtp, verifyOtp } from '../services/authService'
 import { getSettings } from '../services/settingsService'
 import { t } from '../services/i18n'
+import { authErrorMessage } from '../utils/authErrors'
 import { Button } from '../components/ui/button'
 import {
   Card,
@@ -106,14 +109,13 @@ const resendCode = async () => {
     statusMessage.value = t('login.newCodeSent')
     statusVariant.value = 'success'
   } catch (error) {
-    errorMessage.value = apiError(error)
+    errorMessage.value = apiError(error, { otp: true })
   } finally {
     isResending.value = false
   }
 }
 
-const apiError = (error) =>
-  t(error.status === 401 ? 'login.invalidCredentials' : 'login.genericError')
+const apiError = (error, options) => authErrorMessage(error, t, options)
 
 const startVerification = (email, message = '') => {
   form.value.email = email
@@ -136,9 +138,10 @@ const submit = async () => {
     isSubmitting.value = true
     try {
       await verifyOtp({ email: form.value.email, code: otpCode.value })
-      router.push(route.query.redirect || '/checkout')
+      const navigationError = await finishSignIn(route.query.redirect, router)
+      if (navigationError) errorMessage.value = t(navigationError)
     } catch (error) {
-      errorMessage.value = apiError(error)
+      errorMessage.value = apiError(error, { otp: true })
     } finally {
       isSubmitting.value = false
     }
@@ -159,7 +162,8 @@ const submit = async () => {
       startVerification(response.email || form.value.email)
     } else {
       await login({ email: form.value.email, password: form.value.password })
-      router.push(route.query.redirect || '/checkout')
+      const navigationError = await finishSignIn(route.query.redirect, router)
+      if (navigationError) errorMessage.value = t(navigationError)
     }
   } catch (error) {
     if (!isRegistering.value && error.status === 403 && error.details?.email) {
@@ -205,9 +209,15 @@ onUnmounted(clearResendTimer)
 </script>
 
 <template>
-  <main class="flex min-h-[calc(100vh-6rem)] items-center justify-center px-4 py-10 sm:px-6">
-    <Card as="section" class="w-full max-w-md" aria-labelledby="auth-title">
+  <main id="main-content" tabindex="-1" class="store-auth-page">
+    <Card as="section" class="store-auth-card" aria-labelledby="auth-title">
       <CardHeader>
+        <div class="mb-3 flex items-center justify-between">
+          <Button as-child variant="ghost" size="icon"
+            ><RouterLink to="/" :aria-label="t('nav.home')" :title="t('nav.home')"
+              ><StoreIcon name="home" /></RouterLink
+          ></Button>
+        </div>
         <CardTitle as="h1" id="auth-title">
           {{
             isVerifyingOtp
@@ -220,13 +230,14 @@ onUnmounted(clearResendTimer)
         <CardDescription v-if="isVerifyingOtp" id="verification-description">
           {{ withValues('login.verificationSent', { email: form.email }) }}
         </CardDescription>
-        <CardDescription v-else-if="siteName">{{ siteName }}</CardDescription>
       </CardHeader>
       <CardContent>
         <form :aria-busy="isSubmitting || isResending" @submit.prevent="submit">
           <FieldGroup>
             <Field v-if="!isVerifyingOtp" :data-disabled="isSubmitting">
-              <FieldLabel for="auth-email">{{ t('login.email') }}</FieldLabel>
+              <FieldLabel for="auth-email"
+                ><StoreIcon name="mail" />{{ t('login.email') }}</FieldLabel
+              >
               <Input
                 id="auth-email"
                 v-model="form.email"
@@ -239,7 +250,9 @@ onUnmounted(clearResendTimer)
               />
             </Field>
             <Field v-if="!isVerifyingOtp" :data-disabled="isSubmitting">
-              <FieldLabel for="auth-password">{{ t('login.password') }}</FieldLabel>
+              <FieldLabel for="auth-password"
+                ><StoreIcon name="lock" />{{ t('login.password') }}</FieldLabel
+              >
               <PasswordInput
                 :key="isRegistering ? 'register-password' : 'login-password'"
                 id="auth-password"
@@ -258,7 +271,9 @@ onUnmounted(clearResendTimer)
               :data-invalid="confirmationInvalid"
               :data-disabled="isSubmitting"
             >
-              <FieldLabel for="auth-confirm-password">{{ t('login.confirmPassword') }}</FieldLabel>
+              <FieldLabel for="auth-confirm-password"
+                ><StoreIcon name="check" />{{ t('login.confirmPassword') }}</FieldLabel
+              >
               <PasswordInput
                 id="auth-confirm-password"
                 :label="t('login.confirmPassword')"
@@ -309,15 +324,14 @@ onUnmounted(clearResendTimer)
                   </Field>
                 </FieldGroup>
               </FieldSet>
-              <div
-                id="otp-resend"
-                class="flex flex-col items-start gap-2 text-sm text-muted"
-                aria-live="polite"
-              >
+              <div id="otp-resend" class="flex flex-col items-start gap-2 text-sm text-muted">
                 <p class="m-0">{{ t('login.spamHint') }}</p>
-                <span v-if="resendSeconds" class="tabular-nums">{{
-                  withValues('login.resendIn', { time: resendTime })
-                }}</span>
+                <template v-if="resendSeconds">
+                  <span class="sr-only">{{ t('login.resendWait') }}</span>
+                  <span class="tabular-nums" aria-hidden="true">{{
+                    withValues('login.resendIn', { time: resendTime })
+                  }}</span>
+                </template>
                 <Button
                   v-else
                   variant="outline"
@@ -344,6 +358,7 @@ onUnmounted(clearResendTimer)
               :disabled="isSubmitting || isResending || (isVerifyingOtp && !isOtpComplete)"
             >
               <Spinner v-if="isSubmitting" data-icon="inline-start" />
+              <StoreIcon v-else :name="isVerifyingOtp ? 'check' : 'login'" />
               {{
                 isSubmitting
                   ? t('login.pleaseWait')

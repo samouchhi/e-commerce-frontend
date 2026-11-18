@@ -1,0 +1,91 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - link "Skip to content" [ref=f2e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=f2e4]:
+      - generic [ref=f2e5]:
+        - link "MongKol home" [ref=f2e158] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f2e159]: MongKol
+        - search [ref=f2e6]:
+          - generic [ref=f2e7]: Search
+          - searchbox "Search" [ref=f2e11]
+          - button "Search" [ref=f2e12] [cursor=pointer]
+        - navigation "More navigation" [ref=f2e16]:
+          - link "Home" [ref=f2e17] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f2e21] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f2e27] [cursor=pointer]:
+            - /url: /promotion
+          - button "Category" [ref=f2e32] [cursor=pointer]
+        - generic [ref=f2e37]:
+          - button "English / ខ្មែរ" [ref=f2e39] [cursor=pointer]
+          - button "Open profile menu" [ref=f2e44] [cursor=pointer]
+          - button "Your bag, 0 items" [ref=f2e48] [cursor=pointer]
+    - main [ref=f2e51]:
+      - heading "MONGKOL" [level=1] [ref=f2e52]
+      - region "Featured promotions" [ref=f2e160]:
+        - region "Featured promotions" [ref=f2e161]:
+          - group "1 of 1" [ref=f2e163]:
+            - link [ref=f2e164] [cursor=pointer]:
+              - /url: /products
+              - img "Featured promotions" [ref=f2e166]
+      - region [ref=f2e167]:
+        - generic [ref=f2e168]:
+          - heading "Our Products" [level=2] [ref=f2e169]
+          - paragraph [ref=f2e170]: Explore the full MONGKOL collection.
+        - link "Shop Now" [ref=f2e171] [cursor=pointer]:
+          - /url: /products
+      - region [ref=f2e172]:
+        - generic [ref=f2e173]:
+          - heading [level=2] [ref=f2e175]
+          - link "View All" [ref=f2e179] [cursor=pointer]:
+            - /url: /categories
+        - generic [ref=f2e182]:
+          - link "ទឹកត្រចៀកកាំ" [ref=f2e183] [cursor=pointer]:
+            - /url: /products?category=1
+          - link "សំបុកត្រចៀក" [ref=f2e191] [cursor=pointer]:
+            - /url: /products?category=2
+      - region [ref=f2e199]:
+        - generic [ref=f2e200]:
+          - heading [level=2] [ref=f2e202]
+          - link "View All" [ref=f2e206] [cursor=pointer]:
+            - /url: /products
+        - article [ref=f2e210]:
+          - link "ទឹកត្រចៀកកាំ" [ref=f2e211] [cursor=pointer]:
+            - /url: /products/3732496
+            - img "ទឹកត្រចៀកកាំ" [ref=f2e212]
+          - generic [ref=f2e213]:
+            - heading [level=3] [ref=f2e214]:
+              - link "ទឹកត្រចៀកកាំ" [ref=f2e215] [cursor=pointer]:
+                - /url: /products/3732496
+            - generic [ref=f2e216]:
+              - generic [ref=f2e217]: From$15.00
+              - button "Choose options" [ref=f2e219] [cursor=pointer]:
+                - generic [ref=f2e220]: Options
+    - contentinfo [ref=f2e121]:
+      - generic [ref=f2e122]:
+        - generic [ref=f2e123]:
+          - link "MongKol" [ref=f2e221] [cursor=pointer]:
+            - /url: /
+          - generic "We Accept" [ref=f2e124]:
+            - img "ABA KHQR / Bakong" [ref=f2e125]
+            - generic [ref=f2e126]: ABA KHQR / Bakong
+        - navigation "Quick Links" [ref=f2e127]:
+          - link "Home" [ref=f2e128] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f2e131] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f2e134] [cursor=pointer]:
+            - /url: /promotion
+          - link "Category" [ref=f2e137] [cursor=pointer]:
+            - /url: /categories
+          - link "About Us" [ref=f2e140] [cursor=pointer]:
+            - /url: /about
+        - link "support@chhin.tech" [ref=f2e224] [cursor=pointer]:
+          - /url: mailto:support@chhin.tech
+      - paragraph [ref=f2e145]: © 2026 MongKol
+  - generic [ref=f2e146]:
+    - generic "Toggle devtools panel" [ref=f2e147] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f2e153] [cursor=pointer]

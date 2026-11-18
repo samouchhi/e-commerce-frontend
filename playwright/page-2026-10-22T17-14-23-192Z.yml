@@ -1,0 +1,55 @@
+- generic [active] [ref=f6e1]:
+  - generic [ref=f6e2]:
+    - link "Skip to content" [ref=f6e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=f6e4]:
+      - generic [ref=f6e5]:
+        - link "home":
+          - /url: /
+        - search [ref=f6e6]:
+          - generic [ref=f6e7]: Search
+          - searchbox "Search" [ref=f6e11]
+          - button "Search" [ref=f6e12] [cursor=pointer]
+        - generic [ref=f6e16]:
+          - button "English / ខ្មែរ" [ref=f6e18] [cursor=pointer]
+          - button "More navigation" [ref=f6e23] [cursor=pointer]
+          - button "Your bag, 0 items" [ref=f6e24] [cursor=pointer]
+    - main [ref=f6e27]:
+      - navigation "Breadcrumbs" [ref=f6e28]:
+        - link "Home" [ref=f6e29] [cursor=pointer]:
+          - /url: /
+        - link "Products" [ref=f6e32] [cursor=pointer]:
+          - /url: /products
+      - status "Loading product" [ref=f6e33]
+    - contentinfo [ref=f6e39]:
+      - generic [ref=f6e40]:
+        - generic [ref=f6e41]:
+          - link:
+            - /url: /
+          - generic "We Accept" [ref=f6e42]:
+            - img "ABA KHQR / Bakong" [ref=f6e43]
+            - generic [ref=f6e44]: ABA KHQR / Bakong
+        - navigation "Quick Links" [ref=f6e45]:
+          - link "Home" [ref=f6e46] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f6e49] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f6e52] [cursor=pointer]:
+            - /url: /promotion
+          - link "Category" [ref=f6e55] [cursor=pointer]:
+            - /url: /categories
+          - link "About Us" [ref=f6e58] [cursor=pointer]:
+            - /url: /about
+      - paragraph [ref=f6e63]: © 2026
+    - navigation "More navigation" [ref=f6e64]:
+      - link "Home" [ref=f6e65] [cursor=pointer]:
+        - /url: /
+      - link "Products" [ref=f6e69] [cursor=pointer]:
+        - /url: /products
+      - link "Promotions" [ref=f6e73] [cursor=pointer]:
+        - /url: /promotion
+      - link "Profile" [ref=f6e77] [cursor=pointer]:
+        - /url: /login
+  - generic [ref=f6e81]:
+    - generic "Toggle devtools panel" [ref=f6e82] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f6e88] [cursor=pointer]

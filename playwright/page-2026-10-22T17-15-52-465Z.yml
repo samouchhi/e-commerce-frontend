@@ -1,0 +1,92 @@
+- generic [ref=f7e1]:
+  - generic [ref=f7e2]:
+    - link "Skip to content" [ref=f7e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=f7e4]:
+      - generic [ref=f7e5]:
+        - link "MongKol home" [ref=f7e168] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f7e169]: MongKol
+        - search [ref=f7e6]:
+          - generic [ref=f7e7]: Search
+          - searchbox "Search" [ref=f7e11]
+          - button "Search" [ref=f7e12] [cursor=pointer]
+        - generic [ref=f7e16]:
+          - button "English / ខ្មែរ" [ref=f7e18] [cursor=pointer]
+          - button "More navigation" [ref=f7e23] [cursor=pointer]
+          - button "Your bag, 0 items" [ref=f7e24] [cursor=pointer]
+    - main [active] [ref=f7e233]:
+      - heading "MONGKOL" [level=1] [ref=f7e234]
+      - region "Featured promotions" [ref=f7e236]:
+        - region "Featured promotions" [ref=f7e237]:
+          - group "1 of 1" [ref=f7e239]:
+            - link [ref=f7e240] [cursor=pointer]:
+              - /url: /products
+              - img "Featured promotions" [ref=f7e242]
+      - region [ref=f7e243]:
+        - generic [ref=f7e244]:
+          - heading "Our Products" [level=2] [ref=f7e245]
+          - paragraph [ref=f7e246]: Explore the full MONGKOL collection.
+        - link "Shop Now" [ref=f7e247] [cursor=pointer]:
+          - /url: /products
+      - region [ref=f7e248]:
+        - generic [ref=f7e249]:
+          - heading [level=2] [ref=f7e251]
+          - link "View All" [ref=f7e255] [cursor=pointer]:
+            - /url: /categories
+        - generic [ref=f7e258]:
+          - link "ទឹកត្រចៀកកាំ" [ref=f7e259] [cursor=pointer]:
+            - /url: /products?category=1
+          - link "សំបុកត្រចៀក" [ref=f7e265] [cursor=pointer]:
+            - /url: /products?category=2
+      - region [ref=f7e271]:
+        - generic [ref=f7e272]:
+          - heading [level=2] [ref=f7e274]
+          - link "View All" [ref=f7e278] [cursor=pointer]:
+            - /url: /products
+        - article [ref=f7e282]:
+          - link "ទឹកត្រចៀកកាំ" [ref=f7e283] [cursor=pointer]:
+            - /url: /products/3732496
+            - img "ទឹកត្រចៀកកាំ" [ref=f7e284]
+          - generic [ref=f7e285]:
+            - heading [level=3] [ref=f7e286]:
+              - link "ទឹកត្រចៀកកាំ" [ref=f7e287] [cursor=pointer]:
+                - /url: /products/3732496
+            - generic [ref=f7e288]:
+              - generic [ref=f7e289]: From$15.00
+              - button "Choose options" [ref=f7e291] [cursor=pointer]:
+                - generic [ref=f7e292]: Options
+    - contentinfo [ref=f7e114]:
+      - generic [ref=f7e115]:
+        - generic [ref=f7e116]:
+          - link "MongKol" [ref=f7e226] [cursor=pointer]:
+            - /url: /
+          - generic "We Accept" [ref=f7e117]:
+            - img "ABA KHQR / Bakong" [ref=f7e118]
+            - generic [ref=f7e119]: ABA KHQR / Bakong
+        - navigation "Quick Links" [ref=f7e120]:
+          - link "Home" [ref=f7e121] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=f7e124] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=f7e127] [cursor=pointer]:
+            - /url: /promotion
+          - link "Category" [ref=f7e130] [cursor=pointer]:
+            - /url: /categories
+          - link "About Us" [ref=f7e133] [cursor=pointer]:
+            - /url: /about
+        - link "support@chhin.tech" [ref=f7e229] [cursor=pointer]:
+          - /url: mailto:support@chhin.tech
+      - paragraph [ref=f7e138]: © 2026 MongKol
+    - navigation "More navigation" [ref=f7e139]:
+      - link "Home" [ref=f7e140] [cursor=pointer]:
+        - /url: /
+      - link "Products" [ref=f7e144] [cursor=pointer]:
+        - /url: /products
+      - link "Promotions" [ref=f7e148] [cursor=pointer]:
+        - /url: /promotion
+      - link "Profile" [ref=f7e152] [cursor=pointer]:
+        - /url: /login
+  - generic [ref=f7e156]:
+    - generic "Toggle devtools panel" [ref=f7e157] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=f7e163] [cursor=pointer]

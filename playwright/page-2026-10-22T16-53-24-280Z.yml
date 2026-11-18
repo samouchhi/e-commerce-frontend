@@ -1,0 +1,50 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "Skip to content" [ref=e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - link "home":
+          - /url: /
+        - search [ref=e6]:
+          - generic [ref=e7]: Search
+          - searchbox "Search" [ref=e11]
+          - button "Search" [ref=e12] [cursor=pointer]
+        - navigation "More navigation" [ref=e16]:
+          - link "Home" [ref=e17] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=e21] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=e27] [cursor=pointer]:
+            - /url: /promotion
+          - button "Category" [ref=e32] [cursor=pointer]
+        - generic [ref=e37]:
+          - button "English / ខ្មែរ" [ref=e39] [cursor=pointer]
+          - button "Open profile menu" [ref=e44] [cursor=pointer]
+          - button "Your bag, 0 items" [ref=e48] [cursor=pointer]
+    - main [ref=e51]:
+      - heading "MONGKOL" [level=1] [ref=e52]
+      - status "Loading product" [ref=e56]
+    - contentinfo [ref=e121]:
+      - generic [ref=e122]:
+        - generic [ref=e123]:
+          - link:
+            - /url: /
+          - generic "We Accept" [ref=e124]:
+            - img "ABA KHQR / Bakong" [ref=e125]
+            - generic [ref=e126]: ABA KHQR / Bakong
+        - navigation "Quick Links" [ref=e127]:
+          - link "Home" [ref=e128] [cursor=pointer]:
+            - /url: /
+          - link "Products" [ref=e131] [cursor=pointer]:
+            - /url: /products
+          - link "Promotions" [ref=e134] [cursor=pointer]:
+            - /url: /promotion
+          - link "Category" [ref=e137] [cursor=pointer]:
+            - /url: /categories
+          - link "About Us" [ref=e140] [cursor=pointer]:
+            - /url: /about
+      - paragraph [ref=e145]: © 2026
+  - generic [ref=e146]:
+    - generic "Toggle devtools panel" [ref=e147] [cursor=pointer]
+    - generic "Toggle Component Inspector" [ref=e153] [cursor=pointer]

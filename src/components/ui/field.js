@@ -16,7 +16,10 @@ export const Field = primitive(
   'div',
   'grid min-w-0 content-start gap-2 data-[disabled=true]:opacity-60',
 )
-export const FieldLabel = primitive('label', 'text-sm font-semibold text-ink')
+export const FieldLabel = primitive(
+  'label',
+  'flex items-center gap-2 text-sm font-semibold text-ink [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted',
+)
 export const FieldError = primitive('p', 'm-0 text-sm leading-relaxed text-danger', {
   role: 'alert',
 })

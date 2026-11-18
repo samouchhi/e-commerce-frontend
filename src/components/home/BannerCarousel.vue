@@ -1,8 +1,10 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { assetUrl } from '../../services/api'
 import { Button } from '../ui/button.js'
+import StoreHero from '../layout/StoreHero.vue'
+import { RouterLink } from 'vue-router'
 import { t } from '../../services/i18n'
+import StoreIcon from '../icons/StoreIcon.vue'
 
 const AUTOPLAY_DELAY = 5000
 
@@ -20,6 +22,7 @@ const visibleBanners = computed(() =>
 
 const track = ref(null)
 const activeIndex = ref(0)
+const autoplay = ref(false)
 let autoplayTimer = null
 
 const goTo = (index) => {
@@ -46,20 +49,42 @@ const handleScroll = () => {
 
 const startAutoplay = () => {
   if (autoplayTimer) clearInterval(autoplayTimer)
-  if (
-    visibleBanners.value.length < 2 ||
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-    return
+  if (!autoplay.value || visibleBanners.value.length < 2) return
 
   autoplayTimer = window.setInterval(() => {
     goTo(activeIndex.value + 1)
   }, AUTOPLAY_DELAY)
 }
+const stopAutoplay = () => {
+  clearInterval(autoplayTimer)
+  autoplayTimer = null
+}
+const pauseAutoplay = () => {
+  autoplay.value = false
+  stopAutoplay()
+}
+const navigate = (index) => {
+  pauseAutoplay()
+  goTo(index)
+}
+const toggleAutoplay = () => {
+  autoplay.value = !autoplay.value
+  startAutoplay()
+}
+const alignTrack = () => {
+  track.value?.scrollTo({ left: activeIndex.value * track.value.clientWidth, behavior: 'instant' })
+}
 
-onMounted(startAutoplay)
+onMounted(() => {
+  autoplay.value = window.matchMedia(
+    '(min-width: 768px) and (prefers-reduced-motion: no-preference)',
+  ).matches
+  startAutoplay()
+  window.addEventListener('resize', alignTrack)
+})
 onUnmounted(() => {
-  if (autoplayTimer) clearInterval(autoplayTimer)
+  stopAutoplay()
+  window.removeEventListener('resize', alignTrack)
 })
 
 watch(
@@ -76,15 +101,22 @@ watch(
 <template>
   <div
     v-if="visibleBanners.length"
-    class="relative"
+    class="store-banner-carousel"
+    @mouseenter="stopAutoplay"
+    @mouseleave="startAutoplay"
+    @focusin="stopAutoplay"
+    @focusout="!$event.currentTarget.contains($event.relatedTarget) && startAutoplay()"
     role="region"
     aria-roledescription="carousel"
     :aria-label="t('home.featuredPromotions')"
   >
     <div
       ref="track"
-      class="scrollbar-none flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth motion-reduce:scroll-auto"
+      class="store-banner-track scrollbar-none flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-2xl scroll-smooth motion-reduce:scroll-auto"
       tabindex="0"
+      @pointerdown="pauseAutoplay"
+      @keydown.left.prevent="navigate(activeIndex - 1)"
+      @keydown.right.prevent="navigate(activeIndex + 1)"
       @scroll.passive="handleScroll"
     >
       <div
@@ -92,6 +124,7 @@ watch(
         :key="banner.id"
         class="relative flex-[0_0_100%] snap-center snap-always"
         role="group"
+        :inert="index !== activeIndex"
         aria-roledescription="slide"
         :aria-label="
           t('home.bannerPosition')
@@ -99,61 +132,79 @@ watch(
             .replace('{count}', visibleBanners.length)
         "
       >
-        <img
-          class="block aspect-[10/3] w-full bg-accent-soft object-cover"
-          :src="assetUrl(banner.image)"
-          :alt="banner.title || t('home.featuredPromotions')"
-          :loading="index === 0 ? 'eager' : 'lazy'"
-          @error="failedImages.add(banner.image)"
-        />
-        <p v-if="banner.title" class="m-0 bg-paper px-5 py-4 text-sm font-semibold leading-relaxed">
-          {{ banner.title }}
-        </p>
+        <RouterLink
+          to="/products"
+          class="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-accent"
+        >
+          <StoreHero
+            :image="banner.image"
+            :alt="banner.title || t('home.featuredPromotions')"
+            @image-error="failedImages.add(banner.image)"
+          />
+        </RouterLink>
       </div>
     </div>
 
-    <template v-if="visibleBanners.length > 1">
+    <div v-if="visibleBanners.length > 1" class="flex items-center justify-between gap-2 pt-1">
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
-        class="absolute top-1/2 left-4 hidden size-11 -translate-y-1/2 rounded-full md:flex"
+        class="size-11 shrink-0 rounded-full text-muted hover:bg-accent-soft hover:text-accent [&_svg]:size-5"
         type="button"
         :aria-label="t('home.previousBanner')"
-        @click="goTo(activeIndex - 1)"
+        @click="navigate(activeIndex - 1)"
       >
-        <svg class="fill-none stroke-current stroke-[1.5]" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m14 6-6 6 6 6" />
-        </svg>
+        <StoreIcon name="chevron" class="rotate-180" />
       </Button>
-      <Button
-        variant="outline"
-        size="icon"
-        class="absolute top-1/2 right-4 hidden size-11 -translate-y-1/2 rounded-full md:flex"
-        type="button"
-        :aria-label="t('home.nextBanner')"
-        @click="goTo(activeIndex + 1)"
-      >
-        <svg class="fill-none stroke-current stroke-[1.5]" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m10 6 6 6-6 6" />
-        </svg>
-      </Button>
-      <div class="flex justify-center border-t border-line">
+      <div class="scrollbar-none flex min-w-0 max-w-full overflow-x-auto rounded-full">
         <button
           v-for="(banner, index) in visibleBanners"
           :key="banner.id"
-          class="flex size-11 cursor-pointer items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
+          class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
           type="button"
           :aria-label="t('home.goToBanner').replace('{index}', index + 1)"
           :aria-current="activeIndex === index ? 'true' : undefined"
-          @click="goTo(index)"
+          @click="navigate(index)"
         >
           <span
-            class="h-1.5 rounded-full bg-ink/25"
-            :class="activeIndex === index ? 'w-5 bg-ink' : 'w-1.5'"
+            class="h-1.5 rounded-full transition-[width,background-color] motion-reduce:transition-none"
+            :class="activeIndex === index ? 'w-6 bg-accent' : 'w-1.5 bg-muted'"
             aria-hidden="true"
           />
         </button>
       </div>
-    </template>
+      <div class="flex shrink-0 items-center">
+        <Button
+          variant="ghost"
+          size="icon"
+          class="size-11 rounded-full text-muted hover:bg-accent-soft hover:text-accent [&_svg]:size-5"
+          type="button"
+          :aria-label="t(autoplay ? 'home.pauseBanners' : 'home.playBanners')"
+          :aria-pressed="autoplay"
+          @click="toggleAutoplay"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            aria-hidden="true"
+          >
+            <path v-if="autoplay" d="M8 5v14M16 5v14" />
+            <path v-else d="m8 5 11 7-11 7V5Z" />
+          </svg>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="size-11 rounded-full text-muted hover:bg-accent-soft hover:text-accent [&_svg]:size-5"
+          type="button"
+          :aria-label="t('home.nextBanner')"
+          @click="navigate(activeIndex + 1)"
+        >
+          <StoreIcon name="chevron" />
+        </Button>
+      </div>
+    </div>
   </div>
 </template>

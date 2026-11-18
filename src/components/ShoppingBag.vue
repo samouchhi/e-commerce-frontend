@@ -1,4 +1,5 @@
 <script setup>
+import StoreIcon from './icons/StoreIcon.vue'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from './ui/dialog.js'
@@ -16,6 +17,7 @@ import { Alert, Empty, EmptyTitle, EmptyDescription, Skeleton } from './ui/feedb
 import { Spinner } from './ui/spinner.js'
 import CartRowsSkeleton from './CartRowsSkeleton.vue'
 import { formatPrice } from '../utils/pricing'
+import { optionLabel } from '../utils/productDetail'
 import { t } from '../services/i18n'
 const props = defineProps({
   open: Boolean,
@@ -25,6 +27,7 @@ const props = defineProps({
   pendingRemoval: Object,
   subtotal: Number,
   canCheckout: Boolean,
+  isLoggedIn: Boolean,
   loading: Boolean,
   error: String,
   imageUrl: Function,
@@ -99,9 +102,9 @@ const close = () => {
       <header class="grid shrink-0 gap-2 px-4 pt-4 pb-3 sm:px-5">
         <div class="flex items-start justify-between gap-3">
           <div class="grid gap-1">
-            <DialogTitle class="m-0 text-3xl font-semibold tracking-tight">{{
-              t('cart.title')
-            }}</DialogTitle
+            <DialogTitle class="m-0 flex items-center gap-3 text-2xl font-semibold tracking-tight"
+              ><span class="store-icon-tile"><StoreIcon name="bag" class="size-5" /></span
+              >{{ t('cart.title') }}</DialogTitle
             ><DialogDescription class="m-0 text-sm text-muted">{{
               t(count === 1 ? 'cart.itemCount' : 'cart.itemsCount').replace('{count}', count)
             }}</DialogDescription>
@@ -152,9 +155,13 @@ const close = () => {
             size="sm"
             class="rounded-full"
             v-if="items.length"
+            :aria-label="t('cart.clearCart')"
+            :title="t('cart.clearCart')"
             :disabled="loading"
             @click="requestClear"
-            >{{ t('cart.clearCart') }}</Button
+            ><StoreIcon name="trash" /><span class="sr-only">{{
+              t('cart.clearCart')
+            }}</span></Button
           >
         </div>
       </header>
@@ -242,7 +249,7 @@ const close = () => {
                     :value="String(variant.id)"
                     :disabled="!variant.is_active || Number(variant.stock_qty) <= 0"
                   >
-                    {{ variant.name
+                    {{ optionLabel(productFor(item), variant.name)
                     }}{{ Number(variant.stock_qty) <= 0 ? ` (${t('cart.outOfStock')})` : '' }}
                   </option></NativeSelect
                 >
@@ -347,6 +354,9 @@ const close = () => {
             loading ? t('cart.goToCheckout') : error ? t('cart.retryToCheckout') : t('cart.fixCart')
           }}
         </Button>
+        <p v-if="canCheckout && !isLoggedIn && !error && !loading" class="text-center text-xs text-muted">
+          {{ t('cart.signInNotice') }}
+        </p>
       </footer>
     </DialogContent>
     <AlertDialog

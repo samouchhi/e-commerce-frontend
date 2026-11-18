@@ -1,0 +1,29 @@
+# Account and checkout source follow-up
+
+Reviewed 2026-10-23 (Asia/Bangkok). Read-only review of LoginView, PasswordResetView, ChangePasswordView, CheckoutView, OrderView, authService/authNavigation, orderService and apiErrors/api callers. No account mutation, order or payment performed by this reviewer. Findings below are source-confirmed behavior; backend responses and visual consequences remain separate runtime questions.
+
+## Priority findings
+
+1. **P1 - Prey Veng customers cannot select their province.** `src/views/CheckoutView.vue:361-387` hardcodes 24 province/capital entries and omits Prey Veng. The required `checkout-city` NativeSelect at lines 1087-1100 offers only that list. Add the missing province and confirm the backend accepts its canonical value. This is a direct input restriction, not an aesthetic suggestion.
+
+2. **P1 - Payment dialog has incomplete keyboard behavior.** `CheckoutView.vue:735-914` implements a Teleport with a section declaring `role=dialog aria-modal=true`; it does not use the existing Dialog primitive, focus scope, initial focus, Escape listener, background inertness or keyboard focus restoration on this pending-payment path. `restoreCheckoutFocus` is wired only to OrderCompleteDialog at 733. Keyboard focus therefore remains in the checkout/background when the QR opens and can move behind the modal. Reuse the existing accessible Dialog component and retain all payment polling/close behavior. Runtime keyboard confirmation is still needed; no real order was created to reach this state.
+
+3. **P1 - Payment recovery creates a fresh order instead of resuming the existing one.** `closePaymentModal` at 498 clears `isSubmitted` and payment details; `prepareOrder` at 564 always calls createOrder before generateOrderPayment at 593. It does not branch on the existing `order` ref. QR generation failure returns Back to checkout (Feedback at 870-892), and QR expiry copy explicitly asks for a new checkout (`src/services/i18n.js:426`). Closing/retrying therefore sends a second POST /api/orders. Server-side deduplication/cancellation is unknown; do not claim duplicate database rows without checking the backend. Prefer regenerate/resume payment for the same pending order; explicitly communicate whether closing cancels anything.
+
+4. **P1 - Order history cannot explain or recover an unpaid order.** `src/views/OrderView.vue` consumes shipping_status and exposes shipping progress, items and totals, but never reads payment_status or imports a payment action. `src/services/orderService.js` already has generateOrderPayment/verifyOrderPayment, used exclusively by checkout. After refresh/navigation or an interrupted QR payment, a user can see an order as Pending delivery but cannot tell whether it is paid or resume payment from history. Add distinct payment status and a recovery action for eligible pending orders. Runtime availability of payment_status in the API payload must be verified before implementation.
+
+5. **P2 - Standard international phone input is rejected.** `CheckoutView.vue:258-263` validates new addresses with /^[0-9][0-9 ]{7,11}$/ against the untrimmed form field, although outgoing phone is trimmed at 566. +855-prefixed numbers, hyphens and incidental outer spaces fail. This also differs from saved-address behavior, which skips that regex. Normalize permitted local/international phone formats before validating; preserve a clear Cambodian example. Confirm accepted backend contract before choosing normalization.
+
+6. **P2 - OTP countdown lives inside a polite announcement region.** `src/views/LoginView.vue:345-359` places a once-per-second countdown inside `aria-live=polite`; startResendTimer updates it every second (67-72). Screen readers may announce repeated timer updates while the customer enters digits. Keep the ticking timer outside live announcements and announce once when resend becomes available. Actual NVDA/VoiceOver announcement frequency was not measured.
+
+7. **P2 - OTP errors lose useful error meaning.** LoginView apiError at 118-123 uses invalidCredentials for every 401, including verifyOtp catch at 147-148, and genericError for non-422 statuses. `validationMessage` only consumes backend messages for 422 (`src/utils/apiErrors.js`). If OTP endpoints return 401 for an invalid code, the customer sees a credential error; if they return 429, the UI hides resend/rate-limit guidance. Confirm real endpoint status contracts; then map OTP invalid/expired/rate-limit states specifically. This is a conditional runtime hypothesis, not a confirmed API defect.
+
+## Additional limits and good patterns
+
+- New address drafts and OTP verification state are component refs, lost on refresh/navigation. Cart has its own persistence; do not conflate the two. Address draft recovery would help interruption-prone mobile customers, but persistent personal data requires an explicit retention choice.
+- Existing positives: accessible form labels, autocomplete hints, matching-password feedback, OTP paste/autofill handling, protected return paths, session validation, destructive address confirmation, preserved new-address draft while switching within the screen, server cart resolution, payment polling retries/backoff and cancellation guards.
+- Change password explicitly clears session after successful response; its success link back to login is intentional. Do not report it as a navigation bug.
+- Password reset has invalid-link recovery and preserves email when requesting a new link. No reset email or credential was sent by this reviewer.
+- Shipping progress still includes processing while backend status support should be checked. No finding asserted merely because previous work discussed Pending/Shipped enums.
+
+No source changes or database writes made. Authenticated browser flow, real OTP delivery, physical mobile behavior, screen readers and real payment/order recovery remain unverified by this reviewer.

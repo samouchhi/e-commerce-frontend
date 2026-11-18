@@ -82,3 +82,16 @@ test('payment service rejects invalid expiry before starting a countdown', async
   )
   await assert.rejects(service.generateOrderPayment(76), /did not include a valid QR expiry/)
 })
+
+test('payment can resume only when the backend returned a pending payment status', async () => {
+  const { service } = await loadOrderService(Response.json({}))
+
+  assert.equal(service.canResumeOrderPayment({ id: 76, payment_status: 'pending' }), true)
+  assert.equal(
+    service.canResumeOrderPayment({ id: 76, payment_status: { value: 'pending' } }),
+    true,
+  )
+  assert.equal(service.canResumeOrderPayment({ id: 76, payment_status: 'paid' }), false)
+  assert.equal(service.canResumeOrderPayment({ id: 76 }), false)
+  assert.equal(service.canResumeOrderPayment({ payment_status: 'pending' }), false)
+})

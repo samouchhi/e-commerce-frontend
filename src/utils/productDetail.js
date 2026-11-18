@@ -16,6 +16,12 @@ const attributesFor = (variant) => {
   )
 }
 
+export const optionLabel = (product, value) => {
+  const label = String(value ?? '')
+  const unit = String(product?.unit?.name || '').trim()
+  return unit && /^\d+(?:[.,]\d+)?$/.test(label.trim()) ? `${label} ${unit}` : label
+}
+
 export const optionGroups = (product) => {
   const variants = product?.variants || []
   if (variants.length < 2) return []
@@ -33,7 +39,10 @@ export const optionGroups = (product) => {
       {
         key: 'variant',
         label: null,
-        values: variants.map((variant) => ({ value: String(variant.id), label: variant.name })),
+        values: variants.map((variant) => ({
+          value: String(variant.id),
+          label: optionLabel(product, variant.name),
+        })),
       },
     ]
   return keys.map((key) => ({
@@ -41,7 +50,7 @@ export const optionGroups = (product) => {
     label: key.replaceAll('_', ' '),
     values: [...new Set(variants.map((variant) => attributesFor(variant)[key]))].map((value) => ({
       value,
-      label: value,
+      label: optionLabel(product, value),
     })),
   }))
 }
